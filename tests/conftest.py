@@ -51,7 +51,7 @@ STATE_JS = """() => {
     left: hero.dataset.left || '', pace: hero.dataset.pace || '', heroText: hero.innerText,
     band: document.getElementById('band').innerText, bandClass: document.getElementById('band').className,
     footer: document.getElementById('status').innerText, asleep: document.body.classList.contains('asleep'),
-    wx: hero.dataset.wx || '', footRight: document.getElementById('foot-right').innerText,
+    wx: hero.dataset.wx || '', wxNow: document.getElementById('wx-now').innerText,
     rows, siteNote: (document.querySelector('.site-note') || {}).innerText || '',
     pageOverflowX: document.documentElement.scrollWidth > innerWidth,
     pageOverflowY: document.documentElement.scrollHeight > innerHeight,

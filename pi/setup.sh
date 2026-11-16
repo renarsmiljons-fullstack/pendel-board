@@ -57,7 +57,19 @@ echo "==> Opening the board full screen at login"
 # Current Raspberry Pi OS runs the labwc desktop on Wayland. Chromium must be told: when it guesses,
 # it looks for an X11 display, finds none and quits.
 if [ -d /etc/xdg/labwc ]; then OZONE="--ozone-platform=wayland"; else OZONE="--ozone-platform-hint=auto"; fi
-KIOSK="$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --password-store=basic $OZONE http://127.0.0.1:$PORT/"
+# The board is laid out for a 600-pixel-tall screen. Small panels often report 1920x1080 and shrink
+# the picture, so zoom Chromium by (short side / 600). Set BOARD_SCALE to override.
+SCALE=1
+if command -v wlr-randr >/dev/null; then
+  SIZE=$(WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
+    wlr-randr 2>/dev/null | awk '/current/ {print $1; exit}')
+  if [ -n "$SIZE" ]; then
+    SCALE=$(echo "$SIZE" | awk -Fx '{s = ($1 < $2 ? $1 : $2) / 600; if (s < 1) s = 1; printf "%.2f", s}')
+  fi
+fi
+SCALE="${BOARD_SCALE:-$SCALE}"
+echo "    zoom: $SCALE"
+KIOSK="$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --password-store=basic --force-device-scale-factor=$SCALE $OZONE http://127.0.0.1:$PORT/"
 if [ -d /etc/xdg/labwc ]; then
   # Current Raspberry Pi OS desktop (labwc): start the board from labwc's own autostart file
   mkdir -p "$HOME/.config/labwc"
