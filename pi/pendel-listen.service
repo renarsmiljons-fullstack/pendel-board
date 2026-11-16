@@ -1,0 +1,11 @@
+[Unit]
+Description=Update the departure board as soon as GitHub has a new tested version
+After=network-online.target
+
+[Service]
+ExecStart=/bin/bash @DIR@/pi/listen.sh @DIR@ @BRANCH@
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target
