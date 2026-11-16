@@ -52,7 +52,7 @@ def test_features_easiest_on_time_train_and_offers_faster_one(open_board):
     s = open_board(BASE, t("06:35")).state()
     assert s["mode"] == "leave" and s["train"] == "06:48"
     assert s["big"] == "5" and s["pace"] == "Walk"            # 06:48 - 7.5 min walk = 06:40:30
-    assert "Or the 06:40 if you go now" in s["heroText"]     # faster, earlier train at a jog
+    assert rows(s)["06:40"]["tag"] == "Jog"                  # the faster, earlier train is in the list
     assert rows(s)["06:48"]["mine"]
     assert s["band"].startswith("On time for work")
 
@@ -67,13 +67,21 @@ def test_go_mode_when_it_is_time_to_leave(open_board):
 def test_only_a_sprint_left_says_you_will_likely_miss_it(open_board):
     s = open_board(BASE, t("06:52")).state()
     assert s["train"] == "06:55" and s["pace"] == "Usain Bolt"
-    assert "likely miss it" in s["heroText"] and "07:18" in s["heroText"]
+    assert "07:18" in rows(s)                                # the next train is in the list
 
 
 def test_late_for_work(open_board):
     s = open_board(BASE, t("06:58")).state()
     assert s["band"].startswith("Late for work")
-    assert s["train"] == "07:18" and "Text work, then take the 07:18" in s["heroText"]
+    assert s["train"] == "07:18" and "text work" in s["band"]
+
+
+@pytest.mark.parametrize("hhmm", ["06:35", "06:50", "06:52", "06:58"])
+def test_top_card_has_only_time_and_pace(open_board, hhmm):
+    # Other trains, alternatives and advice live in the list and the band, not in the top card
+    text = open_board(BASE, t(hhmm)).state()["heroText"]
+    for phrase in ("for a normal walk", "Or the", "Both on time", "likely miss", "Text work", "BUS"):
+        assert phrase not in text
 
 
 def test_real_tracks_are_shown_plainly_never_as_track_change(open_board):
@@ -156,7 +164,7 @@ def test_delay_past_the_cutoff_makes_you_late(open_board):
 def test_replacement_bus_is_announced_in_the_top_card(open_board):
     r = with_change("06:48", destination="Stockholms södra ersättningsbuss mot Nynäshamn")
     s = open_board(r, t("06:35")).state()
-    assert "BUS replaces your train" in s["heroText"] and "bus in" in s["heroText"]
+    assert "BUS replaces train" in rows(s)["06:48"]["note"]
     assert "Nynäshamn" in rows(s)["06:48"]["note"] and "ersättning" not in rows(s)["06:48"]["note"]
 
 

@@ -79,10 +79,7 @@
   .count-row { display: flex; align-items: stretch; justify-content: space-between; gap: 20px; }
   .meter { display: flex; flex-direction: column-reverse; gap: 4px; width: 46px; min-height: 90px; padding-top: 6px; }
   .meter i { flex: 1; min-height: 10px; border-radius: 0; background: var(--line); }
-  .lines { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; min-height: 62px; }
-  .lead { font-size: 26px; color: var(--text); }
-  .lead b { font-weight: 800; }
-  .hint { font-size: 21px; color: var(--soft); }
+  .lines { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; }
   .chip { display: inline-block; font-size: 22px; font-weight: 800; padding: 1px 9px; border-radius: 0; color: #111; margin-left: 6px; vertical-align: 2px; }
   .hero.stale .count, .hero.stale .count small { color: var(--dim); }
   .hero.stale { border-left-style: dashed !important; }
@@ -148,9 +145,8 @@
   /* ---------- Landscape: keep the card calm ---------- */
   @media (orientation: landscape) {
     .count-wrap { justify-content: center; padding-top: 0; }
-    .lines { margin-top: auto; }
     .list.roomy .row { padding: 10px 0; font-size: 26px; }
-    .lines { min-height: 0; margin-top: 16px; }
+    .lines { margin-top: 16px; }
     .count { font-size: clamp(120px, 58cqh, 260px); }
     .hero.has-note .count { font-size: clamp(90px, 32cqh, 170px); }
   }
@@ -173,7 +169,6 @@
     .count small { font-size: 50px; }
     .pace-cap { font-size: 23px; }
     .meter { width: 56px; }
-    .lead { font-size: 28px; } .hint { font-size: 24px; }
     .row { font-size: 24px; }
   }
 </style>
@@ -508,33 +503,8 @@ function render() {
     const leaveAt = new Date(next.expected - (CONFIG.walkMinutes + extraOf(next) + CONFIG.platformBufferMinutes) * 60000);
     const leaveIn = mins(n, leaveAt);
     const lateMode = morning && next.expected > deadline;
-    const later = catchable.filter(d => d.expected > next.expected && (!morning || lateMode || d.expected <= deadline));
-    // First line: the most useful fact. Second: the playful hint.
     const leaveMode = leaveIn >= 1;          // still time before you need to walk out
-    let lead = "", hint = pace.hint;
     const vehicle = isBus(next) ? "bus" : "train";
-    if (leaveMode) lead = `for a normal walk · ${vehicle} in <b class="num" style="white-space:nowrap">${minutesLabel(left)} min</b>`;
-    if (earlier && !stale) {
-      // The featured train is the calm option; mention the earlier, faster one
-      const ep = paceOf(earlier);
-      const lineE = `Or the <b class="num">${hhmm(earlier.expected)}</b> · ${minutesLabel(mins(n, earlier.expected))} min${chip(ep)}`;
-      lead = leaveMode ? lead : lineE;
-      hint = leaveMode ? `Or the ${hhmm(earlier.expected)} if you go now${chip(ep)}` : (morning && !lateMode && earlier.expected <= deadline ? "Both on time." : "");
-    } else if (!leaveMode && pace.level >= 3) {
-      // Suggest the next later train that needs a calmer pace (it is always in the list)
-      const pick = later.find(d => paceOf(d).level < pace.level);
-      if (pick) {
-        const pp = paceOf(pick);
-        lead = `Or the <b class="num">${hhmm(pick.expected)}</b> · ${minutesLabel(mins(n, pick.expected))} min${chip(pp)}`;
-        const both = morning && !lateMode && pick.expected <= deadline;
-        hint = both ? "Both on time." : "";
-      } else if (pace.level === 6) {
-        const after = catchable.find(d => d.expected > next.expected);
-        hint = after && morning && !lateMode ? `You'll likely miss it. Text work and take the ${hhmm(after.expected)}, or sprint.` : after ? `You'll likely miss it. Take the ${hhmm(after.expected)}, or sprint.` : "Only if you sprint.";
-      }
-    }
-    if (leaveMode && !lateMode && !earlier) hint = "";
-    if (lateMode) hint = `Text work, then take the ${hhmm(next.expected)}.`;
     const label = leaveMode ? (stale ? "Leave the apartment in about" : leaveIn < 4 ? "Get ready · leave the apartment in" : "Leave the apartment in")
       : `${lateMode ? "After 07:10 · " : ""}Go now · ${vehicle} leaves in ${stale ? "about " : ""}<b class="num">${minutesLabel(left)} min</b>`;
     const big = leaveMode ? leaveIn : left;
@@ -552,10 +522,7 @@ function render() {
     hero.innerHTML = `
       <div class="count-wrap"><div class="count-label">${label}</div><div class="count-row">${leaveMode ? `<div class="count num">${stale ? `<span class="approx">≈</span>` : ""}${minutesLabel(big)}<small>min</small></div>` : `<div class="count go" style="color:${stale ? "var(--dim)" : shown.color}">GO</div>`}
         <div class="pace-col">${meter(shown)}<div class="pace-cap" style="color:${shown.color}">${shown.name}</div></div></div></div>
-      <div class="lines">
-        ${heroTrain && isBus(heroTrain) ? `<div class="lead"><span class="bus">BUS replaces your train</span></div>` : ""}
-        ${stale ? `<div class="lead">Times may be off by ${ageText(age)} or more</div>` : `${lead ? `<div class="lead">${lead}</div>` : ""}${wxLine}${hint ? `<div class="hint">${hint}</div>` : ""}`}
-      </div>`;
+      ${wxLine ? `<div class="lines">${wxLine}</div>` : ""}`;
   }
 
   // ---- List: later trains (not the hero, not the long shot, not missed ones) ----
@@ -625,8 +592,8 @@ window.__test = {
 load();
 loadWeather();
 checkVersion();
-setInterval(load, CONFIG.refreshSeconds * 1000);
 setInterval(loadWeather, CONFIG.weather.refreshMinutes * 60 * 1000);
+setInterval(load, CONFIG.refreshSeconds * 1000);
 setInterval(checkVersion, 5 * 60 * 1000);
 setInterval(render, 1000);
 </script>
