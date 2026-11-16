@@ -1,0 +1,7 @@
+[Unit]
+Description=Update the departure board from GitHub (stable branch)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash @DIR@/pi/update.sh @DIR@ @BRANCH@
