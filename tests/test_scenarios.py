@@ -236,10 +236,10 @@ def wx(name: str) -> dict:
     return load_fixture(WEATHER[name])["response"]
 
 
-def test_dry_weather_adds_nothing_and_footer_shows_temperature(open_board):
+def test_dry_weather_adds_nothing_and_header_shows_temperature(open_board):
     s = open_board(BASE, t("06:35"), weather=wx("kallhall_dry")).state()
     assert s["wx"] == "dry" and "umbrella" not in s["heroText"].lower()
-    assert s["big"] == "5" and s["footRight"] == "4 °C · overcast"
+    assert s["big"] == "5" and s["wxNow"] == "4 °C · overcast"
 
 
 def test_rain_on_the_walk_says_take_an_umbrella(open_board):
@@ -297,7 +297,7 @@ def test_snow_code_alone_counts_as_snow(open_board):
 
 def test_weather_service_down_changes_nothing(open_board):
     s = open_board(BASE, t("06:35"), weather=None).state()
-    assert s["wx"] == "" and "°C" not in s["footRight"] and s["big"] == "5"
+    assert s["wx"] == "" and s["wxNow"] == "" and s["big"] == "5"
 
 
 def test_old_forecast_is_ignored(open_board):
