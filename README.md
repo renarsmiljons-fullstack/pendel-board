@@ -26,12 +26,12 @@ After the reboot, the board opens full screen. If Chromium exits or crashes, the
 ```bash
 systemctl --user status pendel-kiosk          # full-screen board
 systemctl --user status pendel-web            # local web server and screen power
-systemctl --user status pendel-listen         # instant updates from GitHub
+systemctl --user status pendel-listen         # updates from GitHub
 systemctl --user list-timers pendel-update    # next backup check
 journalctl --user -u pendel-listen -n 20      # recent updates
 ```
 
-The web server listens on `127.0.0.1:8080` only, so no other device on your network can reach it. The Pi makes outgoing requests to SL, Open-Meteo, GitHub, and ntfy.sh, and accepts no incoming connections.
+The web server listens on `127.0.0.1:8080` only, so no other device on your network can reach it. The Pi makes outgoing requests to SL, Open-Meteo, and GitHub, and accepts no incoming connections.
 
 ## The screen at night
 
@@ -57,28 +57,13 @@ The header shows the temperature and the weather right now, after the route name
 
 1. A commit lands on `main`.
 2. The `CI` workflow runs every test. If all tests pass, it moves the `stable` branch to that commit.
-3. The `Notify the Pi` workflow sends the commit to a private [ntfy.sh](https://ntfy.sh) topic.
-4. On the Pi, `pi/listen.sh` keeps one outgoing connection open to that topic. When the message arrives, it runs `pi/update.sh`, which pulls `stable` and writes the new commit to `web/version.txt`.
+3. On the Pi, `pi/listen.sh` asks GitHub every 30 seconds which commit `stable` points to. It uses `git ls-remote`, which is one small request and needs no account or secret.
+4. When that commit is new, `pi/update.sh` pulls `stable` and writes the commit to `web/version.txt`.
 5. The open page reads `web/version.txt` every 30 seconds and reloads when it changes.
 
-A merge reaches the screen about 2 minutes later, almost all of it CI. A commit that fails any test never reaches `stable`, so it never reaches the screen.
+A merge reaches the screen about 3 minutes later, most of it CI. A commit that fails any test never reaches `stable`, so it never reaches the screen.
 
-As a backup, `pendel-update.timer` also runs `pi/update.sh` every 10 minutes, so the Pi still updates if ntfy.sh is down.
-
-### The topic name
-
-The topic name works like a password for the notifications, so it is not in this public repository. It is stored in two places, and they must match:
-
-- On GitHub, as the repository secret `NTFY_TOPIC`. Without it, the `Notify the Pi` workflow skips the message.
-- On the Pi, in `~/.config/pendel-board/ntfy-topic`. Without it, the listener stops and only the 10-minute check runs.
-
-To set it during setup, pass it to the script:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/renarsmiljons-fullstack/pendel-board/stable/pi/setup.sh | NTFY_TOPIC=<topic> bash
-```
-
-Anyone who learns the topic can only make the Pi pull the tested `stable` branch early.
+As a backup, `pendel-update.timer` also runs `pi/update.sh` every 10 minutes.
 
 ## Run the tests
 

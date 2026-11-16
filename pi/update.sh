@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Pulls the latest tested version of the board. Run by pendel-listen.service as soon as
-# GitHub sends a message, and every 10 minutes by pendel-update.timer as a backup.
+# Pulls the latest tested version of the board. Run by pendel-listen.service when GitHub
+# has a new commit on `stable`, and every 10 minutes by pendel-update.timer as a backup.
 # Only the `stable` branch is used; CI moves it forward after all tests pass.
 # The open page notices the new web/version.txt within 30 seconds and reloads itself.
 set -euo pipefail

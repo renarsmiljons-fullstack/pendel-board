@@ -9,15 +9,12 @@
 #   2. Clones the repo's `stable` branch to ~/pendel-board.
 #   3. Runs a web server that only the Pi itself can reach (127.0.0.1:8080).
 #   4. Logs in to the desktop automatically and opens the board full screen.
-#   5. Updates to the latest tested version as soon as GitHub sends a message (if NTFY_TOPIC
-#      is set), and checks GitHub every 10 minutes as a backup.
+#   5. Updates to the latest tested version within 30 seconds of CI passing, and checks
+#      GitHub every 10 minutes as a backup.
 #   6. Turns off screen blanking, so the board decides when the screen is dark.
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/renarsmiljons-fullstack/pendel-board.git}"
-# Private ntfy.sh topic for instant updates. It must match the NTFY_TOPIC secret on GitHub.
-# Leave it unset to keep a topic saved by an earlier run, or to use only the 10-minute check.
-NTFY_TOPIC="${NTFY_TOPIC:-}"
 BRANCH="${BRANCH:-stable}"
 DIR="$HOME/pendel-board"
 PORT=8080
@@ -47,11 +44,6 @@ git -C "$DIR" rev-parse --short HEAD > "$DIR/web/version.txt"
 
 echo "==> Installing services"
 mkdir -p "$HOME/.config/systemd/user"
-if [ -n "$NTFY_TOPIC" ]; then
-  mkdir -p "$HOME/.config/pendel-board"
-  echo "$NTFY_TOPIC" > "$HOME/.config/pendel-board/ntfy-topic"
-  chmod 600 "$HOME/.config/pendel-board/ntfy-topic"
-fi
 for unit in pendel-web.service pendel-update.service pendel-update.timer pendel-listen.service; do
   sed -e "s|@DIR@|$DIR|g" -e "s|@PORT@|$PORT|g" -e "s|@BRANCH@|$BRANCH|g" \
     "$DIR/pi/$unit" > "$HOME/.config/systemd/user/$unit"
@@ -59,7 +51,7 @@ done
 chmod +x "$DIR/pi/update.sh"
 systemctl --user daemon-reload
 systemctl --user enable --now pendel-web.service pendel-update.timer pendel-listen.service
-systemctl --user restart pendel-listen.service   # pick up a new topic
+systemctl --user restart pendel-listen.service   # pick up a new listen.sh
 # Keep user services running without anyone logged in over SSH
 sudo loginctl enable-linger "$USER"
 
