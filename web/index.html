@@ -385,6 +385,18 @@ async function checkVersion() {
   } catch (e) { /* no version file (for example when opened directly): ignore */ }
 }
 
+/* ---------- Screen power: HDMI signal off while asleep, which turns the backlight off ---------- */
+// The Pi's server (pi/server.py) sets the signal and reads the touchscreen itself, because a tap
+// on a screen with no signal may not reach this page. It reports the last tap, and a new one wakes the board.
+let lastTap = null;
+async function syncScreen() {
+  try {
+    const r = await (await fetch(`screen?want=${isAwake() ? "on" : "off"}`, { cache: "no-store" })).json();
+    if (lastTap !== null && r.tap > lastTap) { wakeUntil = Date.now() + CONFIG.wakeMinutes * 60000; render(); }
+    lastTap = r.tap;
+  } catch (e) { /* no screen control (for example when opened directly): ignore */ }
+}
+
 /* ---------- Logic ---------- */
 const paceFor = (left, extra = 0) => PACES.find(p => (left - CONFIG.platformBufferMinutes) / (CONFIG.walkMinutes + extra) >= p.min);
 let secFrac = 0;   // seconds past the displayed clock minute, as a fraction of a minute
@@ -597,9 +609,11 @@ window.__test = {
 load();
 loadWeather();
 checkVersion();
+syncScreen();
+setInterval(syncScreen, 2000);
 setInterval(loadWeather, CONFIG.weather.refreshMinutes * 60 * 1000);
 setInterval(load, CONFIG.refreshSeconds * 1000);
-setInterval(checkVersion, 5 * 60 * 1000);
+setInterval(checkVersion, 30 * 1000);
 setInterval(render, 1000);
 </script>
 </body>
