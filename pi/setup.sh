@@ -54,7 +54,10 @@ systemctl --user enable --now pendel-web.service pendel-update.timer
 sudo loginctl enable-linger "$USER"
 
 echo "==> Opening the board full screen at login"
-KIOSK="$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --password-store=basic --ozone-platform-hint=auto http://127.0.0.1:$PORT/"
+# Current Raspberry Pi OS runs the labwc desktop on Wayland. Chromium must be told: when it guesses,
+# it looks for an X11 display, finds none and quits.
+if [ -d /etc/xdg/labwc ]; then OZONE="--ozone-platform=wayland"; else OZONE="--ozone-platform-hint=auto"; fi
+KIOSK="$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --password-store=basic $OZONE http://127.0.0.1:$PORT/"
 if [ -d /etc/xdg/labwc ]; then
   # Current Raspberry Pi OS desktop (labwc): start the board from labwc's own autostart file
   mkdir -p "$HOME/.config/labwc"
