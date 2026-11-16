@@ -8,7 +8,7 @@
 #   1. Installs git, Python 3 and Chromium if they are missing.
 #   2. Clones the repo's `stable` branch to ~/pendel-board.
 #   3. Runs a web server that only the Pi itself can reach (127.0.0.1:8080).
-#   4. Opens the board full screen when the desktop starts.
+#   4. Logs in to the desktop automatically and opens the board full screen.
 #   5. Checks GitHub every 10 minutes and updates to the latest tested version.
 #   6. Turns off screen blanking, so the board decides when the screen is dark.
 set -euo pipefail
@@ -54,14 +54,30 @@ systemctl --user enable --now pendel-web.service pendel-update.timer
 sudo loginctl enable-linger "$USER"
 
 echo "==> Opening the board full screen at login"
-mkdir -p "$HOME/.config/autostart"
-cat > "$HOME/.config/autostart/pendel-board.desktop" <<EOF
+KIOSK="$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --ozone-platform-hint=auto http://127.0.0.1:$PORT/"
+if [ -d /etc/xdg/labwc ]; then
+  # Current Raspberry Pi OS desktop (labwc): start the board from labwc's own autostart file
+  mkdir -p "$HOME/.config/labwc"
+  touch "$HOME/.config/labwc/autostart"
+  sed -i '/127.0.0.1:[0-9]*\//d' "$HOME/.config/labwc/autostart"   # drop the line from an earlier run
+  echo "$KIOSK &" >> "$HOME/.config/labwc/autostart"
+  rm -f "$HOME/.config/autostart/pendel-board.desktop"
+else
+  # Older desktops: the standard XDG autostart folder
+  mkdir -p "$HOME/.config/autostart"
+  cat > "$HOME/.config/autostart/pendel-board.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Departure board
-Exec=$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --ozone-platform-hint=auto http://127.0.0.1:$PORT/
+Exec=$KIOSK
 X-GNOME-Autostart-enabled=true
 EOF
+fi
+
+echo "==> Logging in to the desktop automatically"
+if command -v raspi-config >/dev/null; then
+  sudo raspi-config nonint do_boot_behaviour B4 || true
+fi
 
 echo "==> Turning off screen blanking"
 if command -v raspi-config >/dev/null; then
