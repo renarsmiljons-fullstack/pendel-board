@@ -28,6 +28,8 @@
   header h1 { font-size: 26px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
   header h1 .arrow { color: var(--muted); font-weight: 400; margin: 0 6px; }
   #clock { font-size: 38px; font-weight: 700; }
+  #wx-now { margin-right: auto; margin-left: 8px; padding-left: 20px; border-left: 1px solid var(--edge); font-size: 26px; font-weight: 500; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  #wx-now:empty { display: none; }
 
   /* Band: always present, so the layout never jumps */
   #band { border-left: 8px solid rgba(255,255,255,.35); min-height: 50px; border-radius: 0; padding: 6px 18px; display: flex; flex-direction: column; justify-content: center;
@@ -158,6 +160,7 @@
     #band { font-size: 25px; padding: 7px 14px; min-height: 76px; }
     #band > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     header h1 { font-size: 24px; }
+    #wx-now { font-size: 22px; padding-left: 14px; margin-left: 2px; }
     #band .small { font-size: 20px; }
     main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
     .hero { container-type: normal; }
@@ -178,6 +181,7 @@
 <div class="app">
   <header>
     <h1>Kallhäll<span class="arrow">→</span>Odenplan</h1>
+    <span id="wx-now"></span>
     <div id="clock" class="num">--:--</div>
   </header>
   <div id="band"></div>
@@ -426,7 +430,8 @@ function render() {
     : `<span class="dot"></span>SL not answering${failingSince ? " · " + ageText(Date.now() - failingSince) : ""} · retrying${lastOk ? " · data " + ageText(age) + " old" : ""}`;
   const nowSlot = weatherSlots().find(s => s.start <= n && n < s.start.getTime() + 15 * 60000);
   const wxNow = nowSlot && nowSlot.temp != null ? `${Math.round(nowSlot.temp)} °C${weatherWord(nowSlot.code) ? " · " + weatherWord(nowSlot.code) : ""}` : "";
-  document.getElementById("foot-right").textContent = [wxNow, fakeNow ? "TEST " + fakeNow : ""].filter(Boolean).join(" · ");
+  document.getElementById("wx-now").textContent = wxNow;   // current weather, in the header
+  document.getElementById("foot-right").textContent = fakeNow ? "TEST " + fakeNow : "";
 
   // ---- Loading ----
   if (departures === null && !fetchError) {
