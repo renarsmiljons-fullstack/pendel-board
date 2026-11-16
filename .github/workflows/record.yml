@@ -1,0 +1,45 @@
+name: Record SL responses
+
+# Each weekday morning, records real responses from SL into fixtures/recorded/,
+# commits them, and runs the full test suite against them. A failure here means
+# real data broke a rule the board must keep: GitHub emails the repo owner.
+
+on:
+  schedule:
+    - cron: "0 4 * * 1-5"   # 04:00 UTC = 05:00 Stockholm in winter, 06:00 in summer
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: How long to record (minutes)
+        default: "150"
+
+concurrency: record
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 200
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Record
+        run: python tools/record.py --minutes "${{ github.event.inputs.minutes || '150' }}" --every 10
+      - name: Commit new fixtures
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A fixtures/recorded
+          if git diff --cached --quiet; then echo "Nothing new recorded"; exit 0; fi
+          git commit -m "Record SL responses $(date -u +%F)"
+          git pull --rebase --quiet origin main
+          git push origin HEAD:main
+      - name: Install test tools
+        run: |
+          pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+      - name: Run tests against everything recorded
+        run: python -m pytest -q
