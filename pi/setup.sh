@@ -54,7 +54,7 @@ systemctl --user enable --now pendel-web.service pendel-update.timer
 sudo loginctl enable-linger "$USER"
 
 echo "==> Opening the board full screen at login"
-KIOSK="$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --ozone-platform-hint=auto http://127.0.0.1:$PORT/"
+KIOSK="$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --password-store=basic --ozone-platform-hint=auto http://127.0.0.1:$PORT/"
 if [ -d /etc/xdg/labwc ]; then
   # Current Raspberry Pi OS desktop (labwc): start the board from labwc's own autostart file
   mkdir -p "$HOME/.config/labwc"
