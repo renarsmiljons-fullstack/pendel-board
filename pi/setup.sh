@@ -64,9 +64,6 @@ systemctl --user restart pendel-listen.service   # pick up a new topic
 sudo loginctl enable-linger "$USER"
 
 echo "==> Opening the board full screen at login"
-# Current Raspberry Pi OS runs the labwc desktop on Wayland. Chromium must be told: when it guesses,
-# it looks for an X11 display, finds none and quits.
-if [ -d /etc/xdg/labwc ]; then OZONE="--ozone-platform=wayland"; else OZONE="--ozone-platform-hint=auto"; fi
 # The board is laid out for a 600-pixel-tall screen. Small panels often report 1920x1080 and shrink
 # the picture, so zoom Chromium by (short side / 600). Set BOARD_SCALE to override.
 SCALE=1
@@ -79,22 +76,25 @@ if command -v wlr-randr >/dev/null; then
 fi
 SCALE="${BOARD_SCALE:-$SCALE}"
 echo "    zoom: $SCALE"
-KIOSK="$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --password-store=basic --force-device-scale-factor=$SCALE $OZONE http://127.0.0.1:$PORT/"
 if [ -d /etc/xdg/labwc ]; then
-  # Current Raspberry Pi OS desktop (labwc): start the board from labwc's own autostart file
-  mkdir -p "$HOME/.config/labwc"
-  touch "$HOME/.config/labwc/autostart"
-  sed -i '/127.0.0.1:[0-9]*\//d' "$HOME/.config/labwc/autostart"   # drop the line from an earlier run
-  echo "$KIOSK &" >> "$HOME/.config/labwc/autostart"
+  # Current Raspberry Pi OS desktop (labwc on Wayland): a service runs Chromium and starts it
+  # again if it ever exits. Remove the autostart line that earlier versions of this script wrote.
+  mkdir -p "$HOME/.config/pendel-board"
+  printf 'SCALE=%s\nPORT=%s\n' "$SCALE" "$PORT" > "$HOME/.config/pendel-board/kiosk.env"
+  [ -f "$HOME/.config/labwc/autostart" ] && sed -i '/127.0.0.1:[0-9]*\//d' "$HOME/.config/labwc/autostart"
   rm -f "$HOME/.config/autostart/pendel-board.desktop"
+  sed -e "s|@DIR@|$DIR|g" "$DIR/pi/pendel-kiosk.service" > "$HOME/.config/systemd/user/pendel-kiosk.service"
+  systemctl --user daemon-reload
+  systemctl --user enable pendel-kiosk.service
+  systemctl --user restart pendel-kiosk.service
 else
-  # Older desktops: the standard XDG autostart folder
+  # Older desktops (X11): start Chromium from the standard XDG autostart folder
   mkdir -p "$HOME/.config/autostart"
   cat > "$HOME/.config/autostart/pendel-board.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Departure board
-Exec=$KIOSK
+Exec=$CHROMIUM --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --incognito --check-for-update-interval=31536000 --password-store=basic --force-device-scale-factor=$SCALE http://127.0.0.1:$PORT/
 X-GNOME-Autostart-enabled=true
 EOF
 fi
@@ -112,4 +112,5 @@ fi
 echo
 echo "Done. Reboot to start the board:  sudo reboot"
 echo "Check the web server:              systemctl --user status pendel-web"
-echo "Check updates:                     journalctl --user -u pendel-update -n 20"
+echo "Check the board:                   systemctl --user status pendel-kiosk"
+echo "Check updates:                     journalctl --user -u pendel-listen -n 20"

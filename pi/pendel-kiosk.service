@@ -1,0 +1,11 @@
+[Unit]
+Description=Departure board, full screen (restarted if Chromium exits)
+After=pendel-web.service
+
+[Service]
+ExecStart=/bin/bash @DIR@/pi/kiosk.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

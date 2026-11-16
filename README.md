@@ -21,9 +21,10 @@ You need Raspberry Pi OS with the desktop, connected to Wi-Fi, and the touchscre
    sudo reboot
    ```
 
-After the reboot, the board opens full screen. To check that the parts are running:
+After the reboot, the board opens full screen. If Chromium exits or crashes, the `pendel-kiosk` service starts it again within 5 seconds. To check that the parts are running:
 
 ```bash
+systemctl --user status pendel-kiosk          # full-screen board
 systemctl --user status pendel-web            # local web server
 systemctl --user status pendel-listen         # instant updates from GitHub
 systemctl --user list-timers pendel-update    # next backup check
