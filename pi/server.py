@@ -44,7 +44,8 @@ def output_name():
     except (OSError, subprocess.SubprocessError):
         return None
     for line in out.splitlines():
-        if line and not line[0].isspace():
+        # With the screen off, the desktop adds a placeholder output (NOOP-1): skip it
+        if line and not line[0].isspace() and not line.startswith(("NOOP", "HEADLESS")):
             return line.split()[0]
     return None
 

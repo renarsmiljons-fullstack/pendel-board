@@ -22,7 +22,9 @@ def server(tmp_path, monkeypatch):
     log = tmp_path / "randr.log"
     fake = tmp_path / "bin" / "wlr-randr"
     fake.parent.mkdir()
-    fake.write_text(f'#!/bin/sh\nif [ $# -eq 0 ]; then echo \'HDMI-A-1 "Panel"\'; echo \'  Enabled: yes\'; '
+    # The placeholder output comes first, as on the Pi while the screen is off
+    fake.write_text(f'#!/bin/sh\nif [ $# -eq 0 ]; then echo \'NOOP-1 "Headless output 3"\'; echo \'  Enabled: yes\'; '
+                    f'echo \'HDMI-A-1 "Panel"\'; echo \'  Enabled: yes\'; '
                     f'else echo "$*" >> {log}; fi\n')
     fake.chmod(0o755)
     monkeypatch.setenv("PATH", f"{fake.parent}:{os.environ['PATH']}")
