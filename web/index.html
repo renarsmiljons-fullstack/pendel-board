@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kallhäll → Odenplan</title>
+<style>
+  :root {
+    --bg: #090a0d; --panel: #111318; --panel2: #1a1d24; --line: #262a33; --edge: #2c313b;
+    --text: #f4f5f7; --soft: #c6cad4; --muted: #8e94a4; --dim: #5d6372;
+    /* Pace: used only for pace */
+    --p1: #aab3c4; --p2: #a4e05a; --p3: #f6d43c; --p4: #ff9a2e; --p5: #ff4d4d; --p6: #ff2d8a; --p-gone: #5d6372;
+    /* Work status: used only for the band and the cutoff divider */
+    --w-ok: #2257b8; --w-last: #f4f5f7; --w-late: #7a3fe0;
+    /* Disruption: used only for delays, cancellations reasons and old data */
+    --alert: #f5b400;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text);
+    font-family: "Inter", "DejaVu Sans", system-ui, sans-serif; overflow: hidden; cursor: none; }
+  .num { font-variant-numeric: tabular-nums; }
+  .app { height: 100vh; display: grid; grid-template-rows: auto auto 1fr auto; padding: 18px 24px 14px; gap: 16px; }
+  header { grid-row: 1; } #band { grid-row: 2; } main { grid-row: 3; } footer { grid-row: 4; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--edge); }
+  header h1 { font-size: 26px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
+  header h1 .arrow { color: var(--muted); font-weight: 400; margin: 0 6px; }
+  #clock { font-size: 38px; font-weight: 700; }
+
+  /* Band: always present, so the layout never jumps */
+  #band { border-left: 8px solid rgba(255,255,255,.35); min-height: 50px; border-radius: 0; padding: 6px 18px; display: flex; flex-direction: column; justify-content: center;
+    font-size: 28px; font-weight: 800; color: #fff; line-height: 1.18; background: var(--panel); }
+  #band .light { font-weight: 500; }
+  #band .small { font-size: 21px; font-weight: 600; }
+  #band .detail { font-weight: 500; }
+  #band.neutral { color: var(--soft); font-weight: 600; font-size: 24px; outline: 1px solid var(--edge); outline-offset: -1px; border-left-color: var(--edge); }
+  #band.ok { background: var(--panel); border-left-color: var(--w-ok); outline: 1px solid var(--edge); outline-offset: -1px; }
+  #band.last { background: var(--panel); border-left-color: var(--text); outline: 2px solid var(--text); outline-offset: -2px; }
+  #band.late { background: var(--w-late); }
+  #band.alert { background: var(--alert); color: #111; }
+
+  main { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; min-height: 0; }
+  main.solo { grid-template-columns: 1fr; }
+  main.solo .list { display: none; }
+
+  /* ---------- Hero ---------- */
+  .hero { background: var(--panel); outline: 1px solid var(--edge); outline-offset: -1px; border-radius: 0; padding: 20px 24px 22px 26px; min-height: 0;
+    display: flex; flex-direction: column; border-left: 8px solid var(--p-gone); overflow: hidden; container-type: size; }
+  .hero.solo-hero { border-left: none; }
+  .label { font-size: 18px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
+  .train { font-size: 25px; color: var(--soft); display: flex; align-items: center; gap: 10px; margin-top: 6px; white-space: nowrap; min-width: 0; }
+  .train .where { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .train .trkno { color: var(--text); flex: 0 0 auto; }
+  .train b { color: var(--text); font-size: 27px; }
+  .delay-pill { font-size: 20px; font-weight: 800; padding: 2px 10px; border-radius: 0; background: var(--alert); color: #111; white-space: nowrap; }
+  .hero-note { font-size: 21px; color: var(--soft); margin: 4px 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hero-note .warn { color: var(--alert); font-weight: 700; }
+  .longshot { font-size: 20px; color: var(--soft); background: var(--panel2); border-radius: 0; padding: 5px 10px; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .longshot b { color: var(--p6); }
+  .count-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; min-height: 0; padding-top: 14px; }
+  .count-label b { color: var(--text); font-size: 1.35em; letter-spacing: 0; }
+  .count.go { font-size: clamp(90px, 36cqh, 180px) !important; letter-spacing: -.02em; }
+  .count.go small { text-transform: none; font-size: 36px; }
+  .count-label { font-size: 18px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; margin-bottom: 8px; }
+  .hero.has-note .count { font-size: clamp(90px, 27cqh, 170px); }
+  .count { font-size: clamp(100px, 33cqh, 200px); font-weight: 800; line-height: .82; letter-spacing: -.035em; display: flex; align-items: baseline; }
+  .count small { font-size: 44px; font-weight: 600; color: var(--muted); margin-left: 12px; letter-spacing: 0; }
+  .pace-col { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; flex: 0 0 auto; }
+  .pace-col .meter { flex: 1 1 auto !important; }
+  .pace-cap { font-size: 21px; font-weight: 700; line-height: 1.15; display: flex; align-items: flex-start; gap: 6px; text-align: right; max-width: 130px; }
+  .count-row .count { flex: 1 1 auto; min-width: 0; }
+  .glyph { font-size: 24px; line-height: 1; white-space: nowrap; }
+  .trail { display: inline-block; font-size: .6em; margin-left: -.15em; vertical-align: .1em; }
+  .pace-box { flex: 1; min-width: 0; }
+  
+  
+  .count-row { display: flex; align-items: stretch; justify-content: space-between; gap: 20px; }
+  .meter { display: flex; flex-direction: column-reverse; gap: 4px; width: 46px; min-height: 90px; padding-top: 6px; }
+  .meter i { flex: 1; min-height: 10px; border-radius: 0; background: var(--line); }
+  .lines { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; min-height: 62px; }
+  .lead { font-size: 26px; color: var(--text); }
+  .lead b { font-weight: 800; }
+  .hint { font-size: 21px; color: var(--soft); }
+  .chip { display: inline-block; font-size: 22px; font-weight: 800; padding: 1px 9px; border-radius: 0; color: #111; margin-left: 6px; vertical-align: 2px; }
+  .hero.stale .count, .hero.stale .count small { color: var(--dim); }
+  .hero.stale { border-left-style: dashed !important; }
+  .hero.stale .pace-cap { color: var(--soft) !important; }
+  .hero.stale .glyph { opacity: .5; }
+  .hero.stale .meter i.on { background: transparent !important; box-shadow: inset 0 0 0 2px var(--soft) !important; }
+  .approx { font-size: .42em; font-weight: 700; color: var(--dim); margin-right: 6px; align-self: center; }
+
+  /* Solo card (loading / empty / no data) */
+  .solo-card { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; }
+  .solo-card .big { font-size: 96px; line-height: 1; }
+  .solo-card .title { font-size: 46px; font-weight: 800; }
+  .solo-card .sub { font-size: 26px; color: var(--soft); }
+  .dots i { display: inline-block; width: 18px; height: 18px; margin: 0 6px; border-radius: 0; background: var(--soft);
+    animation: blink 1.2s infinite; } .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+
+  /* ---------- List ---------- */
+  .list { background: var(--panel); outline: 1px solid var(--edge); outline-offset: -1px; border-radius: 0; padding: 10px 24px 12px; overflow: hidden; min-height: 0; }
+  .list-title { padding-bottom: 10px !important; margin-bottom: 4px; font-size: 17px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; border-bottom: 1px solid var(--edge); padding: 8px 0 2px; }
+  .row { display: grid; grid-template-columns: 70px 1fr auto 72px; column-gap: 10px; align-items: center;
+    padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 23px; }
+  .list.roomy .row { font-size: 28px; padding: 12px 0; row-gap: 4px; grid-template-columns: 1fr auto 64px; column-gap: 14px; }
+  .list.roomy .row .dest { display: none; }
+  .list.roomy .row .note { grid-column: 1 / 4; }
+  .row .time .was { color: var(--alert); font-size: 20px; font-weight: 600; margin-left: 10px; text-decoration-thickness: 2px; }
+  .list.roomy .row .note { font-size: 21px; color: var(--soft); -webkit-line-clamp: 2; }
+  .row:last-child { border-bottom: none; }
+  .row .time { font-weight: 700; }
+  .row .dest .d { color: var(--alert); font-weight: 700; font-size: .85em; margin-left: 6px; }
+  .row .dest { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .row .in { font-weight: 700; text-align: right; white-space: nowrap; }
+  .row .tag { display: flex; justify-content: flex-end; } .mini { display: flex; flex-direction: column-reverse; gap: 2px; } .mini i { width: 16px; height: 4px; background: var(--line); }
+  .row.after { opacity: .7; }
+  .row.gone { opacity: .4; }
+  .pw { font-size: 20px; font-weight: 800; text-align: right; display: block; width: 100%; }
+  .row.mine { background: var(--panel2); box-shadow: inset 6px 0 0 var(--mine); margin: 0 -24px; padding-left: 24px !important; padding-right: 24px !important; }
+  .mine-tag { color: var(--text); font-weight: 800; }
+  .site-note { font-size: 20px; padding: 8px 0 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .site-note .warn { color: var(--alert); font-weight: 700; }
+  .bus { color: #111; background: var(--alert); font-weight: 800; padding: 1px 7px; letter-spacing: .03em; }
+  .row .note { grid-column: 2 / 5; font-size: 20px; color: var(--muted); margin-top: 3px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .row .note .warn { color: var(--alert); font-weight: 700; font-size: 22px; }
+  .row .note .trk { color: var(--alert); box-shadow: inset 0 0 0 2px var(--alert); font-weight: 700; padding: 1px 7px; }
+  .row .note .cx { color: var(--alert); box-shadow: inset 0 0 0 2px var(--alert); font-weight: 800; padding: 1px 7px; letter-spacing: .05em; }
+  .row.cancelled .time { text-decoration: line-through; color: var(--dim); }
+  .row.cancelled .dest { color: var(--soft); }
+  .divider { margin-top: 6px; font-size: 17px; font-weight: 800; color: #c9a6ff; text-transform: uppercase; letter-spacing: .12em;
+    padding: 9px 0 5px; border-bottom: 3px solid var(--w-late); }
+  .list-empty { height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 22px; padding: 20px; }
+
+  footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 18px; color: var(--muted); white-space: nowrap; }
+  #status.bad { color: var(--alert); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 0; background: var(--p1); margin-right: 8px; vertical-align: 1px; }
+  #status.bad .dot { background: var(--alert); }
+
+  #sleep { position: fixed; inset: 0; background: #000; z-index: 10; display: none; }
+  body.asleep #sleep { display: block; }
+
+  /* ---------- Landscape: keep the card calm ---------- */
+  @media (orientation: landscape) {
+    .count-wrap { justify-content: center; padding-top: 0; }
+    .lines { margin-top: auto; }
+    .list.roomy .row { padding: 10px 0; font-size: 26px; }
+    .lines { min-height: 0; margin-top: 16px; }
+    .count { font-size: clamp(120px, 58cqh, 260px); }
+    .hero.has-note .count { font-size: clamp(90px, 32cqh, 170px); }
+  }
+
+  /* ---------- Portrait (600×1024): its own proportions ---------- */
+  @media (orientation: portrait) {
+    .app { padding: 20px 20px 14px; gap: 16px; }
+    header h1 { font-size: 27px; }
+    #band { font-size: 25px; padding: 7px 14px; min-height: 76px; }
+    #band > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    header h1 { font-size: 24px; }
+    #band .small { font-size: 20px; }
+    main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .hero { container-type: normal; }
+    .count-wrap { flex: 0 0 auto; margin: 18px 0 18px; padding-top: 0; }
+    main.solo { grid-template-rows: 1fr; }
+    .list { max-height: none; }
+    .count { font-size: 220px; }
+    .count.go { font-size: 170px !important; }
+    .count small { font-size: 50px; }
+    .pace-cap { font-size: 23px; }
+    .meter { width: 56px; }
+    .lead { font-size: 28px; } .hint { font-size: 24px; }
+    .row { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div id="sleep" aria-hidden="true"></div>
+<div class="app">
+  <header>
+    <h1>Kallhäll<span class="arrow">→</span>Odenplan</h1>
+    <div id="clock" class="num">--:--</div>
+  </header>
+  <div id="band"></div>
+  <main id="main">
+    <section class="hero" id="hero"></section>
+    <section class="list" id="list"></section>
+  </main>
+  <footer>
+    <span id="status"></span>
+    <span id="foot-right"></span>
+  </footer>
+</div>
+
+<script>
+/* ---------- Settings ---------- */
+const CONFIG = {
+  siteId: 9701,                // Kallhäll (SL Transport API site id)
+  directionCode: 1,            // 1 = toward Stockholm City / Odenplan
+  walkMinutes: 7,              // relaxed walk from the apartment to the platform
+  platformBufferMinutes: 0.5,  // time to get down to the platform and board
+  deadline: "07:10",           // last train that still gets you to work on time
+  deadlineDays: [1, 2, 3, 4, 5],
+  morningWindow: ["06:15", "07:15"],   // wake-up 06:20, out the door by about 07:00
+  refreshSeconds: 30,
+  staleSeconds: 90,            // data older than this is not trusted
+  awake: { days: [1, 2, 3, 4, 5], from: "06:15", to: "07:15" },  // screen on; otherwise black until tapped
+  wakeMinutes: 5,              // how long a tap keeps the screen on
+  maxRows: 4,                  // departures shown, including yours; rows that don't fit are dropped
+};
+
+/* Pace levels, slowest to fastest. ratio = usable minutes / relaxed walk minutes. */
+const PACES = [
+  { min: 1.6,  glyph: "🚶", short: "Easy", name: "Easy walk",  hint: "Plenty of time.",             color: "var(--p1)", level: 1 },
+  { min: 1.0,  glyph: "🚶", short: "Walk", name: "Walk",       hint: "Leave on time.",              color: "var(--p2)", level: 2 },
+  { min: 0.82, glyph: "🚶", short: "Fast", name: "Fast walk", hint: "Leave now.",                  color: "var(--p3)", level: 3 },
+  { min: 0.6,  glyph: "🏃", short: "Jog", name: "Jog",        hint: "Jog the whole way.",          color: "var(--p4)", level: 4 },
+  { min: 0.42, glyph: "🏃", short: "Run", name: "Run",        hint: "Run the whole way.",          color: "var(--p5)", level: 5 },
+  { min: 0.3,  glyph: "⚡", short: "Bolt", name: "Usain Bolt", hint: "Sprint, and only if you leave right now.", color: "var(--p6)", level: 6 },
+  { min: -Infinity, glyph: "", name: "Missed",  hint: "Wait for the next one.",      color: "var(--p-gone)", level: 0 },
+];
+
+/* Short English versions of common SL disruption phrases. warn = a disruption, otherwise neutral info. */
+const PHRASES = [
+  [/signalfel/i, "Signal fault", 1], [/fordonsfel|tekniskt fel på tåget/i, "Train fault", 1], [/spårfel/i, "Track fault", 1],
+  [/växelfel/i, "Points failure", 1], [/obehöriga i spårområdet|obehörig/i, "People on the track", 1],
+  [/olycka/i, "Accident", 1], [/brand/i, "Fire", 1], [/personalbrist/i, "Staff shortage", 1], [/elfel|strömavbrott/i, "Power fault", 1],
+  [/ersättningsbuss/i, "Replacement buses", 1], [/stannar ej vid ([^.]+)/i, m => /odenplan/i.test(m[1]) ? "Does NOT stop at Odenplan" : "Skips " + m[1].trim() + " · still stops at Odenplan", 1],
+  [/kortare tåg/i, "Shorter train than usual", 1], [/spårändring|spårbyte|ändrat spår|nytt spår/i, "Track change", 1],
+];
+function reasons(text) {
+  const out = [];
+  for (const [re, en, warn] of PHRASES) { const m = text.match(re); if (m) out.push({ text: typeof en === "function" ? en(m) : en, warn }); }
+  return out.length ? out : [{ text, warn: 1 }];
+}
+const isBus = d => d.bus;
+const reasonHTML = rs => rs.map(r => r.warn ? `<span class="warn">${esc(r.text)}</span>` : esc(r.text)).join(" · ");
+/* Shorter display names for long destinations */
+function displayName(dest) {
+  const busTo = dest.match(/ersättning\S*\s+mot\s+(.+)$/i);
+  if (busTo) return busTo[1].trim();
+  if (/ersättning/i.test(dest)) dest = dest.replace(/\s*ersättning\S*/ig, "").trim();
+  return dest.replace(/\s+via\s+.*$/i, "").replace(/\s+centrum$/i, " C");
+}
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/* ---------- Time (Stockholm wall clock) ---------- */
+const TZ = "Europe/Stockholm";
+const params = new URLSearchParams(location.search);
+const fakeNow = params.get("now");      // testing: ?now=06:58
+const fakeDay = params.get("day");      // testing: ?day=1 (Monday)
+const fakeStale = params.get("stale");  // testing: ?stale=4 (data 4 min old, feed failing)
+const fakeAt = params.get("at");        // testing: ?at=2026-11-16T06:52:30 (Stockholm time, frozen)
+const noSleep = params.has("nosleep");  // testing: never show the sleep screen
+let frozenAt = null;
+let fakeOffsetMs = 0;
+function stockholmParts(d) {
+  return Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", weekday: "short", hourCycle: "h23",
+  }).formatToParts(d).map(x => [x.type, x.value]));
+}
+function naive(y, mo, d, h, mi, s) { return new Date(Date.UTC(y, mo - 1, d, h, mi, s || 0)); }
+function realNowNaive() { const p = stockholmParts(new Date()); return naive(+p.year, +p.month, +p.day, +p.hour, +p.minute, +p.second); }
+if (fakeNow) { const r = realNowNaive(); const [h, m] = fakeNow.split(":").map(Number);
+  fakeOffsetMs = naive(r.getUTCFullYear(), r.getUTCMonth() + 1, r.getUTCDate(), h, m, 0) - r; }
+function parseLocal(s) { const [d, t = "00:00:00"] = s.split("T"); const [y, mo, da] = d.split("-").map(Number);
+  const [h, mi, se = 0] = t.split(":").map(Number); return naive(y, mo, da, h, mi, se); }
+if (fakeAt) frozenAt = parseLocal(fakeAt);
+const now = () => frozenAt ? new Date(frozenAt) : new Date(realNowNaive().getTime() + fakeOffsetMs);
+function weekday() { if (fakeDay) return +fakeDay; return now().getUTCDay(); }
+function parseSL(s) { const [d, t] = s.split("T"); const [y, mo, da] = d.split("-").map(Number);
+  const [h, mi, se] = t.split(":").map(Number); return naive(y, mo, da, h, mi, se); }
+function atToday(t) { const n = now(); const [h, m] = t.split(":").map(Number);
+  return naive(n.getUTCFullYear(), n.getUTCMonth() + 1, n.getUTCDate(), h, m, 0); }
+const hhmm = d => String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0");
+const mins = (a, b) => (b - a) / 60000;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ---------- Data ---------- */
+/* Departure states from SL's OpenAPI spec (departureStateEnum / journeyStateEnum) */
+const GONE_STATES = ["DEPARTED", "PASSED", "MISSED", "ASSUMEDDEPARTED", "NOTEXPECTED", "NOTCALLED", "BOARDINGCLOSED"];
+const CANCELLED_STATES = ["CANCELLED", "INHIBITED", "REPLACED"];
+const GONE_JOURNEYS = ["NOTEXPECTED", "NOTRUN", "ABORTED", "COMPLETED", "ASSUMEDFINISHED"];
+function parseDepartures(data) {
+  return (data.departures || [])
+    .filter(d => d.direction_code === CONFIG.directionCode && d.scheduled)
+    .filter(d => !GONE_STATES.includes(d.state) && !GONE_JOURNEYS.includes(d.journey?.state))
+    .map(d => ({
+      line: d.line?.designation || "",
+      bus: /ersättning/i.test((d.destination || "") + " " + (d.deviations || []).map(v => v.message).join(" ")),
+      destination: displayName(d.destination || ""),
+      scheduled: parseSL(d.scheduled),
+      expected: parseSL(d.expected || d.scheduled),
+      cancelled: CANCELLED_STATES.includes(d.state) || d.journey?.state === "CANCELLED",
+      replaced: d.state === "REPLACED",
+      uncertain: ["LOSTCONTACT", "UNRELIABLE"].includes(d.journey?.prediction_state),
+      track: d.stop_point?.designation || "",
+      note: (d.deviations || []).map(v => v.message).filter(Boolean).join(" "),
+    }))
+    .sort((a, b) => a.expected - b.expected);
+}
+let siteNotes = [];        // station-wide notices (stop_deviations)
+let departures = null;     // null = never loaded
+let lastOk = null;         // real time of last successful fetch
+let fetchError = null;
+let failingSince = null;  // real time the feed started failing
+
+async function load() {
+  if (fakeStale && departures) return;               // test mode: freeze after first load
+  try {
+    const res = await fetch(`https://transport.integration.sl.se/v1/sites/${CONFIG.siteId}/departures?transport=TRAIN&forecast=120`, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    departures = parseDepartures(data);
+    siteNotes = (data.stop_deviations || []).map(v => v.message).filter(Boolean);
+    lastOk = Date.now(); fetchError = null; failingSince = null;
+    if (fakeStale) { lastOk = Date.now() - fakeStale * 60000; fetchError = "HTTP 503"; }
+  } catch (e) { fetchError = e.message || String(e); if (!failingSince) failingSince = Date.now(); }
+  render();
+}
+
+/* ---------- Sleep: black screen outside the awake hours; a tap wakes it ---------- */
+let wakeUntil = 0;
+function isAwake() {
+  if (noSleep) return true;
+  if (Date.now() < wakeUntil) return true;
+  const n = now(), a = CONFIG.awake;
+  return a.days.includes(weekday()) && n >= atToday(a.from) && n <= atToday(a.to);
+}
+document.addEventListener("pointerdown", () => { wakeUntil = Date.now() + CONFIG.wakeMinutes * 60000; render(); });
+
+/* ---------- Updates: reload when the Pi has pulled a new version ---------- */
+let version = null;
+async function checkVersion() {
+  try {
+    const v = (await (await fetch("version.txt", { cache: "no-store" })).text()).trim();
+    if (version === null) version = v; else if (v && v !== version) location.reload();
+  } catch (e) { /* no version file (for example when opened directly): ignore */ }
+}
+
+/* ---------- Logic ---------- */
+const paceFor = left => PACES.find(p => (left - CONFIG.platformBufferMinutes) / CONFIG.walkMinutes >= p.min);
+let secFrac = 0;   // seconds past the displayed clock minute, as a fraction of a minute
+const minutesLabel = left => { const v = left + secFrac; return v < 1 ? "<1" : String(Math.floor(v)); };
+function morningActive() {
+  if (!CONFIG.deadlineDays.includes(weekday())) return false;
+  const n = now(); return n >= atToday(CONFIG.morningWindow[0]) && n <= atToday(CONFIG.morningWindow[1]);
+}
+function miniBar(p, dim) {
+  let s = ""; for (let i = 1; i <= 6; i++) s += `<i style="${i <= p.level ? (dim ? "box-shadow:inset 0 0 0 2px " + p.color + ";background:transparent" : "background:" + p.color) : ""}"></i>`;
+  return `<span class="mini">${s}</span>`;
+}
+function glyphHTML(p) { return p.glyph.endsWith("💨") ? p.glyph.replace("💨", "") + `<span class="trail">💨</span>` : p.glyph; }
+function meter(p) {
+  let s = ""; for (let i = 1; i <= 6; i++) s += i <= p.level ? `<i class="on" style="background:${p.color};box-shadow:inset 0 0 0 2px ${p.color}"></i>` : `<i></i>`;
+  return `<div class="meter">${s}</div>`;
+}
+const chip = p => `<span class="chip" style="background:${p.color}">${p.name}</span>`;
+const VERB = { 1: "walk", 2: "walk", 3: "walk fast", 4: "jog", 5: "run", 6: "sprint" };
+const cap = t => t[0].toUpperCase() + t.slice(1);
+function ageText(ms) { const s = Math.round(ms / 1000); return s < 90 ? `${s} s` : `${Math.round(s / 60)} min`; }
+function setBand(cls, html) { const b = document.getElementById("band"); b.className = cls || ""; b.innerHTML = html || ""; }
+
+function render() {
+  document.body.classList.toggle("asleep", !isAwake());
+  const n = now();
+  secFrac = n.getUTCSeconds() / 60;
+  document.getElementById("clock").textContent = hhmm(n);
+  const main = document.getElementById("main");
+  const hero = document.getElementById("hero");
+  const list = document.getElementById("list");
+  const age = lastOk ? Date.now() - lastOk : null;
+  const fresh = age !== null && age <= CONFIG.staleSeconds * 1000;
+  const stale = departures !== null && !fresh;
+  const morning = morningActive();
+  const dayName = DAYS[weekday()];
+
+  // Footer: data freshness, one short line
+  const st = document.getElementById("status");
+  st.className = fresh ? "" : "bad";
+  st.innerHTML = fresh ? `<span class="dot"></span>Live from SL · ${ageText(age)} ago`
+    : departures === null && !fetchError ? "Connecting to SL…"
+    : `<span class="dot"></span>SL not answering${failingSince ? " · " + ageText(Date.now() - failingSince) : ""} · retrying${lastOk ? " · data " + ageText(age) + " old" : ""}`;
+  document.getElementById("foot-right").textContent = fakeNow ? "TEST " + fakeNow : "";
+
+  // ---- Loading ----
+  if (departures === null && !fetchError) {
+    setBand("neutral", CONFIG.deadlineDays.includes(weekday()) ? (innerHeight > innerWidth ? `<div>${dayName}</div><div class="small detail">morning commute ${CONFIG.morningWindow[0]}–${CONFIG.morningWindow[1]}</div>` : `<div>${dayName} <span class="light">· morning commute ${CONFIG.morningWindow[0]}–${CONFIG.morningWindow[1]}</span></div>`) : dayName); main.className = "solo"; hero.className = "hero solo-hero"; hero.dataset.mode = "loading"; hero.dataset.train = ""; hero.style.borderLeftColor = "";
+    hero.innerHTML = `<div class="solo-card"><div class="dots"><i></i><i></i><i></i></div>
+      <div class="title">Getting train times</div><div class="sub">Connecting to SL…</div></div>`;
+    return;
+  }
+  // ---- No data at all ----
+  if (departures === null) {
+    setBand("alert", morning ? `<div>⚠ No live times</div><div class="small">Work cutoff is the ${CONFIG.deadline} train</div>` : "⚠ No live train times");
+    main.className = "solo"; hero.className = "hero solo-hero"; hero.dataset.mode = "error"; hero.dataset.train = ""; hero.style.borderLeftColor = "";
+    hero.innerHTML = `<div class="solo-card"><div class="big" style="color:var(--alert)">⚠</div><div class="title">Can't reach SL</div>
+      <div class="sub">Use the SL app until it's back.</div></div>`;
+    return;
+  }
+
+  const deadline = atToday(CONFIG.deadline);
+  const live = departures.filter(d => mins(n, d.expected) > -0.5);
+  const catchable = live.filter(d => !d.cancelled && paceFor(mins(n, d.expected)).level > 0);
+  const ontime = catchable.filter(d => d.expected <= deadline);
+  const realistic = ontime.filter(d => paceFor(mins(n, d.expected)).level <= 5);
+  const cancelledBefore = live.filter(d => d.cancelled && d.expected <= deadline);
+  const justMissed = departures.filter(d => !d.cancelled && d.expected <= deadline && mins(n, d.expected) > -5 && paceFor(mins(n, d.expected)).level === 0);
+  const portraitMode = innerHeight > innerWidth;
+  const winStart = atToday(CONFIG.morningWindow[0]);
+
+  // Featured train: the easiest one that still works.
+  // Weekday mornings: among trains that reach work on time. Otherwise (or when late): within 15 min of the first one.
+  // Easy walk and Walk count as equally relaxed, so the earliest relaxed train wins.
+  const effort = d => Math.max(2, paceFor(mins(n, d.expected)).level);
+  let pool = morning && ontime.length ? ontime
+    : catchable.filter(d => catchable.length && mins(catchable[0].expected, d.expected) <= 15);
+  let next = pool.reduce((best, d) => !best || effort(d) < effort(best) ? d : best, null);
+  const longshot = null;
+  // An earlier, faster train you could also catch
+  const earlier = next ? catchable.filter(d => d.expected <= next.expected - 5 * 60000 && paceFor(mins(n, d.expected)).level <= 4)
+    .reduce((b, d) => !b || paceFor(mins(n, d.expected)).level < paceFor(mins(n, b.expected)).level ? d : b, null) : null;
+
+  // ---- Band: same words in both orientations. Landscape: one line. Portrait: two lines. ----
+  let main1 = "", detail = "", cls = "neutral";
+  if (morning) {
+    const cxList = cancelledBefore.map(d => hhmm(d.expected)).join(", ");
+    const ahead = realistic.filter(d => !next || d.expected >= next.expected);
+    if (ahead.length >= 2) { cls = "ok"; main1 = "On time for work"; detail = `${ahead.length} train${ahead.length === 1 ? "" : "s"} left · last ${hhmm(realistic[realistic.length - 1].expected)}${cxList ? " · " + cxList + " cancelled" : ""}`; }
+    else if (ontime.length >= 1) { const lastT = ahead.length ? ahead[ahead.length - 1] : ontime[ontime.length - 1];
+      cls = "last"; main1 = `Last on-time train: ${hhmm(lastT.expected)}`; detail = `${cxList ? cxList + " cancelled · " : ""}then you're late`; }
+    else { const jm = justMissed[justMissed.length - 1];
+      cls = "late"; main1 = "Late for work";
+      detail = `${jm ? (mins(n, jm.expected) > 0 ? `can't make the ${hhmm(jm.expected)} · ` : `${hhmm(jm.expected)} just left · `) : ""}text work`; }
+  } else if (!CONFIG.deadlineDays.includes(weekday())) { main1 = dayName; detail = "no work cutoff"; }
+  else { main1 = dayName; detail = n < winStart ? `morning commute ${CONFIG.morningWindow[0]}–${CONFIG.morningWindow[1]}` : "work cutoff passed"; }
+  const bandBody = portraitMode ? `<div>${main1}</div><div class="small detail">${detail}</div>` : `<div>${main1} <span class="light">· ${detail}</span></div>`;
+  if (stale) setBand("alert", `<div>⚠ Old data (${ageText(age)}) · check the SL app</div><div class="small">${morning ? "Last known: " : ""}${main1} · ${detail}</div>`);
+  else setBand(cls, bandBody);
+
+  // ---- Empty ----
+  let heroTrain = null, heroPace = null;
+  if (live.length === 0 || !next) {
+    main.className = live.length === 0 ? "solo" : ""; hero.className = "hero solo-hero"; hero.dataset.mode = "empty"; hero.dataset.train = ""; hero.style.borderLeftColor = "";
+    hero.innerHTML = `<div class="solo-card"><div class="big" style="color:var(--soft)">☾</div><div class="title">No trains right now</div>
+      <div class="sub">Nothing toward the city for 2 hours.</div></div>`;
+    if (live.length === 0) return;
+  } else {
+    heroTrain = next;
+    main.className = "";
+    const left = mins(n, next.expected);
+    const pace = paceFor(left);
+    const delay = Math.round(mins(next.scheduled, next.expected));
+    const leaveAt = new Date(next.expected - (CONFIG.walkMinutes + CONFIG.platformBufferMinutes) * 60000);
+    const leaveIn = mins(n, leaveAt);
+    const lateMode = morning && next.expected > deadline;
+    const later = catchable.filter(d => d.expected > next.expected && (!morning || lateMode || d.expected <= deadline));
+    // First line: the most useful fact. Second: the playful hint.
+    const leaveMode = leaveIn >= 1;          // still time before you need to walk out
+    let lead = "", hint = pace.hint;
+    const vehicle = isBus(next) ? "bus" : "train";
+    if (leaveMode) lead = `for a normal walk · ${vehicle} in <b class="num" style="white-space:nowrap">${minutesLabel(left)} min</b>`;
+    if (earlier && !stale) {
+      // The featured train is the calm option; mention the earlier, faster one
+      const ep = paceFor(mins(n, earlier.expected));
+      const lineE = `Or the <b class="num">${hhmm(earlier.expected)}</b> · ${minutesLabel(mins(n, earlier.expected))} min${chip(ep)}`;
+      lead = leaveMode ? lead : lineE;
+      hint = leaveMode ? `Or the ${hhmm(earlier.expected)} if you go now${chip(ep)}` : (morning && !lateMode && earlier.expected <= deadline ? "Both on time." : "");
+    } else if (!leaveMode && pace.level >= 3) {
+      // Suggest the next later train that needs a calmer pace (it is always in the list)
+      const pick = later.find(d => paceFor(mins(n, d.expected)).level < pace.level);
+      if (pick) {
+        const pp = paceFor(mins(n, pick.expected));
+        lead = `Or the <b class="num">${hhmm(pick.expected)}</b> · ${minutesLabel(mins(n, pick.expected))} min${chip(pp)}`;
+        const both = morning && !lateMode && pick.expected <= deadline;
+        hint = both ? "Both on time." : "";
+      } else if (pace.level === 6) {
+        const after = catchable.find(d => d.expected > next.expected);
+        hint = after && morning && !lateMode ? `You'll likely miss it. Text work and take the ${hhmm(after.expected)}, or sprint.` : after ? `You'll likely miss it. Take the ${hhmm(after.expected)}, or sprint.` : "Only if you sprint.";
+      }
+    }
+    if (leaveMode && !lateMode && !earlier) hint = "";
+    if (lateMode) hint = `Text work, then take the ${hhmm(next.expected)}.`;
+    const label = leaveMode ? (stale ? "Leave the apartment in about" : leaveIn < 4 ? "Get ready · leave the apartment in" : "Leave the apartment in")
+      : `${lateMode ? "After 07:10 · " : ""}Go now · ${vehicle} leaves in ${stale ? "about " : ""}<b class="num">${minutesLabel(left)} min</b>`;
+    const big = leaveMode ? leaveIn : left;
+    const shown = leaveMode ? PACES.find(p => p.level === 2) : pace;   // the pace you will walk at
+    heroPace = shown;
+    hero.style.borderLeftColor = stale ? "var(--alert)" : shown.color;
+    hero.className = "hero" + (stale ? " stale" : "");
+    hero.dataset.mode = leaveMode ? "leave" : "go"; hero.dataset.train = hhmm(next.expected);
+    hero.dataset.big = leaveMode ? minutesLabel(big) : ""; hero.dataset.left = minutesLabel(left); hero.dataset.pace = shown.name;
+    hero.innerHTML = `
+      <div class="count-wrap"><div class="count-label">${label}</div><div class="count-row">${leaveMode ? `<div class="count num">${stale ? `<span class="approx">≈</span>` : ""}${minutesLabel(big)}<small>min</small></div>` : `<div class="count go" style="color:${stale ? "var(--dim)" : shown.color}">GO</div>`}
+        <div class="pace-col">${meter(shown)}<div class="pace-cap" style="color:${shown.color}">${shown.name}</div></div></div></div>
+      <div class="lines">
+        ${heroTrain && isBus(heroTrain) ? `<div class="lead"><span class="bus">BUS replaces your train</span></div>` : ""}
+        ${stale ? `<div class="lead">Times may be off by ${ageText(age)} or more</div>` : `${lead ? `<div class="lead">${lead}</div>` : ""}${hint ? `<div class="hint">${hint}</div>` : ""}`}
+      </div>`;
+  }
+
+  // ---- List: later trains (not the hero, not the long shot, not missed ones) ----
+  const landscape = innerWidth > innerHeight;
+  // Start at the earliest train worth mentioning (the faster alternative, or your train), so yours is always listed
+  const startT = (earlier || heroTrain) ? (earlier || heroTrain).expected : null;
+  const rows = live.filter(d => (d.cancelled || paceFor(mins(n, d.expected)).level > 0) && (!startT || d.expected >= startT || (morning && d.cancelled && d.expected <= deadline))).slice(0, CONFIG.maxRows);
+  const lastOnTime = morning && realistic.length ? realistic[realistic.length - 1] : null;
+  const keep = d => d === heroTrain || d === lastOnTime || (d.cancelled && d.expected <= deadline);
+  const roomy = true;
+  if (rows.length === 0) { list.className = "list"; list.innerHTML = `<div class="list-empty">No more trains in the next two hours</div>`; return; }
+  const hasOnTimeRow = morning && (rows.some(d => d.expected <= deadline && !d.cancelled) || (heroTrain && heroTrain.expected <= deadline));
+  let html = `<div class="list-title">Departures</div>${siteNotes.length ? `<div class="site-note">${siteNotes.map(m => reasonHTML(reasons(m))).join(" · ")}</div>` : ""}`; let dividerDone = false;
+  for (const d of rows) {
+    if (hasOnTimeRow && !dividerDone && d.expected > deadline) {
+      html += `<div class="divider">After 07:10 · late for work</div>`; dividerDone = true;
+    }
+    const left = mins(n, d.expected);
+    const pace = paceFor(left);
+    const delay = Math.round(mins(d.scheduled, d.expected));
+    const notes = [];
+    const mine = d === heroTrain;
+    if (mine) notes.push(`<span class="mine-tag">Your train</span>`);
+    if (isBus(d) && !d.cancelled) notes.unshift(`<span class="bus">BUS replaces train</span>`);
+    if (d.cancelled) notes.push(`<span class="cx">CANCELLED</span>`);
+    if (d.track) notes.push(`track ${esc(d.track)}`);
+    if (d.uncertain && !d.cancelled) notes.push(`<span class="warn">Time uncertain</span>`);
+    if (d.replaced) notes.push(`<span class="warn">Replaced</span>`);
+    if (d.note) notes.push(reasonHTML(reasons(d.note)));
+    if (d.line && d.line !== "43") notes.push(`Line ${esc(d.line)}`);
+    if (roomy) notes.push(esc(d.destination));
+    const afterCut = morning && d.expected > deadline;
+    const inCell = d.cancelled ? "" : `<span>${stale ? "≈" : ""}${minutesLabel(left)} min</span>`;
+    const longshotRow = !mine && pace.level === 6;
+    const rp = mine && heroPace ? heroPace : pace;
+    const tag = d.cancelled ? "" : longshotRow ? `<span class="pw" style="color:var(--muted)">Sprint</span>` : `<span class="pw" style="color:${stale ? "var(--soft)" : rp.color}">${rp.short}</span>`;
+    html += `<div class="row${d.cancelled ? " cancelled" : ""}${afterCut && !mine ? " after" : ""}${longshotRow ? " gone" : ""}${mine ? " mine" : ""}${keep(d) ? " keep" : ""}" data-time="${hhmm(d.expected)}" data-sched="${hhmm(d.scheduled)}" data-cancelled="${d.cancelled}"${mine ? ` style="--mine:${(heroPace || pace).color}"` : ""}>
+      <div class="time num">${hhmm(d.expected)}${!d.cancelled && delay > 0 ? `<s class="was">${hhmm(d.scheduled)}</s>` : ""}</div>
+      <div class="dest">${esc(d.destination)}</div>
+      <div class="in num">${inCell}</div>
+      <div class="tag">${tag}</div>
+      ${notes.length ? `<div class="note">${notes.join(" · ")}</div>` : ""}
+    </div>`;
+  }
+  list.className = "list" + (roomy ? " roomy" : "");
+  list.innerHTML = html;
+  // Drop rows from the bottom only while something is actually clipped
+  // (never your train: drop other rows, latest first)
+  while (list.scrollHeight > list.clientHeight + 1) {
+    const loose = [...list.querySelectorAll(".row:not(.mine):not(.keep)")];
+    const others = loose.length ? loose : [...list.querySelectorAll(".row.keep:not(.mine)")];
+    if (!others.length) break;
+    others[others.length - 1].remove();
+    const last = list.lastElementChild;
+    if (last && last.classList.contains("divider")) last.remove();
+  }
+}
+
+/* Test API: lets the test suite step the clock and feed responses without waiting */
+window.__test = {
+  setAt(iso) { frozenAt = parseLocal(iso); render(); },
+  feed(data) { departures = parseDepartures(data); siteNotes = (data.stop_deviations || []).map(v => v.message).filter(Boolean);
+    lastOk = Date.now(); fetchError = null; failingSince = null; render(); },
+};
+
+load();
+checkVersion();
+setInterval(load, CONFIG.refreshSeconds * 1000);
+setInterval(checkVersion, 5 * 60 * 1000);
+setInterval(render, 1000);
+</script>
+</body>
+</html>
