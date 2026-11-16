@@ -1,6 +1,6 @@
 # Kallhäll → Odenplan departure board
 
-A departure board for a 7-inch screen by the front door, running on a Raspberry Pi. It shows when to leave the apartment for the next city-bound commuter train from Kallhäll, how fast to walk, and whether you are still on time for work. Train times come live from SL's [Transport API](https://www.trafiklab.se/api/other-apis/sl/transport/), which needs no API key.
+A departure board for a 7-inch screen by the front door, running on a Raspberry Pi. It shows when to leave the apartment for the next city-bound commuter train from Kallhäll, how fast to walk, and whether you are still on time for work. Train times come live from SL's [Transport API](https://www.trafiklab.se/api/other-apis/sl/transport/), and weather from [Open-Meteo](https://open-meteo.com/). Neither needs an API key.
 
 The whole board is one file: `web/index.html`.
 
@@ -29,7 +29,19 @@ systemctl --user list-timers pendel-update    # next update check
 journalctl --user -u pendel-update -n 20      # recent updates
 ```
 
-The web server listens on `127.0.0.1:8080` only, so no other device on your network can reach it. The Pi makes outgoing requests to SL and GitHub and accepts no incoming connections.
+The web server listens on `127.0.0.1:8080` only, so no other device on your network can reach it. The Pi makes outgoing requests to SL, Open-Meteo, and GitHub, and accepts no incoming connections.
+
+## Weather
+
+The board asks Open-Meteo for the Kallhäll forecast every 10 minutes, in 15-minute steps. For each departure it looks at the forecast for the walk to it: the 15-minute steps that overlap the 9.5 minutes before the train leaves.
+
+| Weather on the walk | What the board does |
+| --- | --- |
+| Rain or drizzle | Shows **RAIN · Take an umbrella**. The leave time does not change. |
+| Snow | Adds 2 minutes to the walk. The leave time moves earlier, and the pace for that train goes up. |
+| Freezing rain | Same as snow, labelled **ICY**. |
+
+The footer shows the temperature and the weather right now. If Open-Meteo does not answer, or its last answer is more than 3 hours old, the board ignores weather and works as before.
 
 ## How changes reach the Pi
 
@@ -53,14 +65,16 @@ The suite opens `web/index.html` in headless Chromium, serves it recorded SL res
 | File | What it checks |
 | --- | --- |
 | `tests/test_sweep.py` | Steps through each recorded response minute by minute, on the minute and at 31 seconds past, in portrait and landscape. At each step it compares the board with `tests/reference.py`, a separate implementation of the rules. |
-| `tests/test_scenarios.py` | One test per situation: every departure state in SL's spec, delays, cancellations, replacement buses, skipped stops, station notices, feed errors, old data, sleep, and weekends. |
+| `tests/test_scenarios.py` | One test per situation: every departure state in SL's spec, delays, cancellations, replacement buses, skipped stops, station notices, feed errors, old data, sleep, weekends, and each kind of weather. |
 
 ## Fixtures
 
-Fixtures are real responses from `GET /v1/sites/{siteId}/departures?transport=TRAIN&forecast=120`, saved with the time they were recorded.
+Fixtures are real responses from SL (`GET /v1/sites/{siteId}/departures?transport=TRAIN&forecast=120`) and from Open-Meteo, saved with the time they were recorded.
 
 - `fixtures/recorded/2026-11-16T0706_kallhall.json` is a weekday morning at Kallhäll. The scenario tests start from this file and change only the fields each scenario is about.
 - `fixtures/recorded/<date>/` holds responses saved by the `Record SL responses` workflow. It runs on weekday mornings and saves three Kallhäll snapshots, plus any response from 16 commuter rail stations that contains something unusual: a cancellation, a message, a delay, an unreliable prediction, or a station notice. It deletes routine snapshots after 30 days and keeps unusual ones.
+- `fixtures/weather/` holds real Open-Meteo responses from the morning of 16 November 2026: dry in Kallhäll, rain in Bergen, drizzle in Gothenburg, and snow in Kiruna. The weather tests pair them with the Kallhäll train recording. Each file keeps the 15-minute steps from 05:00 to 09:45.
+- The recording workflow also saves the Kallhäll forecast with each routine snapshot, as `<time>_kallhall_routine_weather.json`. The sweep tests use it with the train recordings from the same morning.
 
 The recording workflow runs the full test suite against everything it saved. If real data breaks a rule, the workflow fails and GitHub emails the repository owner.
 
@@ -88,6 +102,9 @@ Settings are the `CONFIG` object at the top of the script in `web/index.html`.
 | `refreshSeconds` | `30` | How often the board asks SL for new times. |
 | `staleSeconds` | `90` | Data older than this is marked as possibly wrong. |
 | `maxRows` | `4` | Most departures listed. |
+| `weather.lat`, `weather.lon` | Kallhäll | Where the forecast is for. |
+| `weather.slipperyExtraMinutes` | `2` | Minutes added to the walk in snow or freezing rain. |
+| `weather.maxAgeMinutes` | `180` | Forecasts older than this are ignored. |
 
 ## Test parameters
 

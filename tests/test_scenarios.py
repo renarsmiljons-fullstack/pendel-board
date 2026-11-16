@@ -15,7 +15,7 @@ from datetime import datetime
 
 import pytest
 
-from conftest import BASE_MORNING, load_fixture, shifted
+from conftest import BASE_MORNING, WEATHER, load_fixture, shifted
 
 BASE = shifted(load_fixture(BASE_MORNING)["response"], -30)
 MON = datetime(2026, 11, 16)
@@ -220,6 +220,82 @@ def test_new_data_replaces_old(open_board):
     board = open_board(BASE, t("06:35"))
     board.feed(with_change("06:48", state="CANCELLED"))
     assert board.state()["train"] == "06:55"
+
+
+# ---------- Weather (real Open-Meteo responses from the morning of 16 November) ----------
+
+def wx(name: str) -> dict:
+    return load_fixture(WEATHER[name])["response"]
+
+
+def test_dry_weather_adds_nothing_and_footer_shows_temperature(open_board):
+    s = open_board(BASE, t("06:35"), weather=wx("kallhall_dry")).state()
+    assert s["wx"] == "dry" and "umbrella" not in s["heroText"].lower()
+    assert s["big"] == "5" and s["footRight"] == "4 °C · overcast"
+
+
+def test_rain_on_the_walk_says_take_an_umbrella(open_board):
+    s = open_board(BASE, t("06:35"), weather=wx("bergen_rain")).state()
+    assert s["wx"] == "rain" and "Take an umbrella" in s["heroText"]
+    assert s["big"] == "5"                                  # rain does not change the leave time
+
+
+def test_drizzle_counts_as_rain(open_board):
+    s = open_board(BASE, t("06:35"), weather=wx("gothenburg_drizzle")).state()
+    assert s["wx"] == "rain"
+
+
+def test_snow_on_the_walk_adds_two_minutes(open_board):
+    # Snow from 07:15. Walk to the 07:18 overlaps it; leave 9.5 min before instead of 7.5.
+    s = open_board(BASE, t("06:58"), weather=wx("kiruna_snow")).state()
+    assert s["train"] == "07:18" and s["wx"] == "snow"
+    assert s["big"] == "10" and "2 min added to the walk" in s["heroText"]
+
+
+def test_snow_makes_the_pace_faster(open_board):
+    # 8 min to the 07:18: a normal walk on a dry pavement, a fast walk in snow
+    dry = open_board(BASE, t("07:10"), weather=wx("kallhall_dry")).state()
+    snow = open_board(BASE, t("07:10"), weather=wx("kiruna_snow")).state()
+    assert rows(dry)["07:18"]["tag"] == "Walk" and rows(snow)["07:18"]["tag"] == "Fast"
+
+
+def test_snow_later_does_not_affect_an_earlier_walk(open_board):
+    s = open_board(BASE, t("06:35"), weather=wx("kiruna_snow")).state()
+    assert s["train"] == "06:48" and s["wx"] == "dry" and s["big"] == "5"
+
+
+def test_freezing_rain_is_icy_and_adds_two_minutes(open_board):
+    icy = copy.deepcopy(wx("bergen_rain"))
+    icy["minutely_15"]["weather_code"] = [66 if c == 61 else c for c in icy["minutely_15"]["weather_code"]]
+    s = open_board(BASE, t("06:35"), weather=icy).state()
+    assert s["wx"] == "ice" and "Freezing rain" in s["heroText"]
+    assert s["big"] == "3"                                  # 06:48 - 9.5 min = 06:38:30
+
+
+def test_rain_amount_alone_counts_as_rain(open_board):
+    # Rain reported as an amount while the weather code still says overcast
+    r = copy.deepcopy(wx("kallhall_dry"))
+    r["minutely_15"]["precipitation"] = [0.2] * len(r["minutely_15"]["time"])
+    assert open_board(BASE, t("06:35"), weather=r).state()["wx"] == "rain"
+
+
+def test_snow_code_alone_counts_as_snow(open_board):
+    # Snow reported by weather code while the snowfall amount is still zero
+    r = copy.deepcopy(wx("kiruna_snow"))
+    r["minutely_15"]["snowfall"] = [0] * len(r["minutely_15"]["time"])
+    r["minutely_15"]["precipitation"] = [0] * len(r["minutely_15"]["time"])
+    assert open_board(BASE, t("06:58"), weather=r).state()["wx"] == "snow"
+
+
+def test_weather_service_down_changes_nothing(open_board):
+    s = open_board(BASE, t("06:35"), weather=None).state()
+    assert s["wx"] == "" and "°C" not in s["footRight"] and s["big"] == "5"
+
+
+def test_old_forecast_is_ignored(open_board):
+    board = open_board(BASE, t("06:35"), weather=wx("bergen_rain"))
+    board.page.evaluate("() => { weatherAt = Date.now() - 4 * 3600 * 1000; render(); }")
+    assert board.state()["wx"] == ""
 
 
 # ---------- Sleep ----------
