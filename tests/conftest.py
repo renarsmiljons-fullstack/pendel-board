@@ -15,10 +15,25 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 BOARD = (ROOT / "web" / "index.html").as_uri()
-RECORDED = sorted(glob.glob(str(ROOT / "fixtures" / "recorded" / "**" / "*.json"), recursive=True))
+_ALL = sorted(glob.glob(str(ROOT / "fixtures" / "recorded" / "**" / "*.json"), recursive=True))
+# SL departure responses, and the Kallhäll weather recorded the same morning (if any)
+RECORDED = [p for p in _ALL if not p.endswith("_weather.json")]
+RECORDED_WEATHER = [p for p in _ALL if p.endswith("_weather.json")]
+
 STOCKHOLM = ZoneInfo("Europe/Stockholm")
 # The real Kallhäll weekday-morning recording that scenarios are built from
 BASE_MORNING = str(ROOT / "fixtures" / "recorded" / "2026-11-16T0706_kallhall.json")
+# Real Open-Meteo responses for the morning of 2026-11-16 (see fixtures/weather/)
+WEATHER = {name: str(ROOT / "fixtures" / "weather" / f"2026-11-16_{name}.json")
+           for name in ("kallhall_dry", "bergen_rain", "gothenburg_drizzle", "kiruna_snow")}
+
+
+def weather_for(path: str) -> str | None:
+    """The weather recording from the same morning as an SL recording, closest in time before it."""
+    folder, name = os.path.split(path)
+    same_day = [w for w in RECORDED_WEATHER if os.path.dirname(w) == folder and os.path.basename(w)[:4] <= name[:4]]
+    return same_day[-1] if same_day else None
+
 
 ORIENTATIONS = {"portrait": {"width": 600, "height": 1024}, "landscape": {"width": 1024, "height": 600}}
 
@@ -36,6 +51,7 @@ STATE_JS = """() => {
     left: hero.dataset.left || '', pace: hero.dataset.pace || '', heroText: hero.innerText,
     band: document.getElementById('band').innerText, bandClass: document.getElementById('band').className,
     footer: document.getElementById('status').innerText, asleep: document.body.classList.contains('asleep'),
+    wx: hero.dataset.wx || '', footRight: document.getElementById('foot-right').innerText,
     rows, siteNote: (document.querySelector('.site-note') || {}).innerText || '',
     pageOverflowX: document.documentElement.scrollWidth > innerWidth,
     pageOverflowY: document.documentElement.scrollHeight > innerHeight,
@@ -103,7 +119,9 @@ class Board:
 def open_board(browser):
     pages = []
 
-    def _open(response=None, when: datetime | None = None, orientation="portrait", mode="ok", sleep=False, extra=""):
+    def _open(response=None, when: datetime | None = None, orientation="portrait", mode="ok", sleep=False, extra="",
+              weather: dict | None = None):
+        """weather: an Open-Meteo response, or None for a weather service that is down."""
         page = browser.new_page(viewport=ORIENTATIONS[orientation])
         errors: list[str] = []
         page.on("pageerror", lambda e: errors.append(str(e)))
@@ -117,6 +135,15 @@ def open_board(browser):
             # mode == "hang": never answer, like a slow network
 
         page.route("https://transport.integration.sl.se/**", handler)
+
+        def weather_handler(route):
+            if weather is None:
+                route.fulfill(status=503, body="down", headers={"access-control-allow-origin": "*"})
+            else:
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(weather),
+                              headers={"access-control-allow-origin": "*"})
+
+        page.route("https://api.open-meteo.com/**", weather_handler)
         query = f"?at={iso(when)}" if when else "?"
         if not sleep:
             query += "&nosleep"
@@ -124,6 +151,7 @@ def open_board(browser):
         page.wait_for_function("() => document.getElementById('hero').dataset.mode !== undefined", timeout=5000)
         if mode == "ok":
             page.wait_for_function("() => (document.getElementById('hero').dataset.mode || '') !== 'loading'", timeout=5000)
+        page.wait_for_function("() => !!document.body.dataset.weather", timeout=5000)
         pages.append(page)
         return Board(page, errors)
 

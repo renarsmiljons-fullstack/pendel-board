@@ -4,6 +4,7 @@ Run by .github/workflows/record.yml on weekday mornings. Saves:
   * Kallhäll at a few fixed moments each morning (routine fixtures, kept 30 days)
   * any station response with something unusual in it, such as a cancellation,
     a message, an unreliable prediction or a station notice (kept for good)
+  * the Open-Meteo forecast for Kallhäll with each routine snapshot (kept with it)
 
 Usage: python tools/record.py [--minutes 150] [--every 10]
 """
@@ -19,6 +20,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 API = "https://transport.integration.sl.se/v1"
+WEATHER_PATH = ("/v1/forecast?latitude=59.4535&longitude=17.8058&minutely_15=precipitation,snowfall,temperature_2m,weather_code"
+                "&timezone=Europe%2FStockholm&forecast_days=2&models=metno_seamless")
 OUT = Path(__file__).resolve().parent.parent / "fixtures" / "recorded"
 STOCKHOLM = ZoneInfo("Europe/Stockholm")
 KALLHALL = 9701
@@ -40,6 +43,22 @@ def fetch(site_id: int) -> dict:
     url = f"{API}/sites/{site_id}/departures?transport=TRAIN&forecast=120"
     with urllib.request.urlopen(url, timeout=20) as r:
         return json.load(r)
+
+
+def fetch_weather() -> dict:
+    with urllib.request.urlopen("https://api.open-meteo.com" + WEATHER_PATH, timeout=20) as r:
+        return json.load(r)
+
+
+def save_weather(resp: dict) -> Path:
+    now = datetime.now(timezone.utc)
+    local = now.astimezone(STOCKHOLM)
+    folder = OUT / local.strftime("%Y-%m-%d")
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{local:%H%M}_kallhall_routine_weather.json"
+    body = {"recorded_at": now.isoformat().replace("+00:00", "Z"), "place": "Kallhäll", "url": WEATHER_PATH, "response": resp}
+    path.write_text(json.dumps(body, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+    return path
 
 
 def unusual(resp: dict) -> list[str]:
@@ -109,6 +128,10 @@ def round_once(saved: set[str]) -> None:
             if slot and slot not in saved:
                 saved.add(slot)
                 path = save(resp, site_id, name, "routine", [])
+                try:
+                    print(f"saved {save_weather(fetch_weather()).relative_to(OUT)}")
+                except Exception as e:  # the weather service failing must not stop the recording
+                    print(f"weather: {e}")
         if path:
             print(f"saved {path.relative_to(OUT)} {reasons}")
 

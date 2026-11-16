@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from conftest import BASE_MORNING, ORIENTATIONS, RECORDED, load_fixture, recorded_local_time, shifted
+from conftest import BASE_MORNING, ORIENTATIONS, RECORDED, WEATHER, load_fixture, recorded_local_time, shifted, weather_for
 from reference import at, expected_view, is_morning, minutes_shown
 
 
@@ -22,27 +22,33 @@ def hhmm(dt: datetime) -> str:
 
 
 def sweep_cases():
-    """(id, response, start, minutes to sweep)"""
+    """(id, response, weather, start, minutes to sweep)"""
     cases = []
     for path in RECORDED:
         fx = load_fixture(path)
         start = recorded_local_time(fx)
-        cases.append((path.split("/")[-1], fx["response"], start, 75))
+        wx_path = weather_for(path)
+        wx = load_fixture(wx_path)["response"] if wx_path else None
+        cases.append((path.split("/")[-1], fx["response"], wx, start, 75))
     # The real morning, shifted so the sweep crosses every part of the morning window
     base = load_fixture(BASE_MORNING)
     rec = recorded_local_time(base)
     for shift in (-60, -45, -30, -15):
-        cases.append((f"kallhall_shift{shift}", shifted(base["response"], shift), rec + timedelta(minutes=shift - 20), 100))
+        cases.append((f"kallhall_shift{shift}", shifted(base["response"], shift), None, rec + timedelta(minutes=shift - 20), 100))
+    # The same real morning with each real weather recording of that morning
+    for name, path in WEATHER.items():
+        cases.append((f"kallhall_shift-30_{name}", shifted(base["response"], -30), load_fixture(path)["response"],
+                      rec + timedelta(minutes=-50), 100))
     return cases
 
 
 CASES = sweep_cases()
 
 
-def check(state: dict, response: dict, now: datetime, errors: list[str]) -> list[str]:
+def check(state: dict, response: dict, weather: dict | None, now: datetime, errors: list[str]) -> list[str]:
     """Every rule the board must keep at this moment. Returns the broken ones."""
     bad = []
-    ref = expected_view(response, now)
+    ref = expected_view(response, now, weather)
     if errors:
         bad.append(f"page errors: {errors}")
     if state["pageOverflowX"] or state["pageOverflowY"]:
@@ -76,6 +82,8 @@ def check(state: dict, response: dict, now: datetime, errors: list[str]) -> list
         bad.append(f"leave-in {state['big']}, expected {ref['big']}")
     if state["pace"] != ref["pace"]:
         bad.append(f"pace {state['pace']!r}, expected {ref['pace']!r}")
+    if state["wx"] != (ref["weather"] or ""):
+        bad.append(f"weather {state['wx']!r}, expected {ref['weather']!r}")
     mine = [r for r in state["rows"] if r["mine"]]
     if len(mine) != 1 or mine[0]["time"] != state["train"]:
         bad.append(f"your train {state['train']} is not exactly once in the list: {[r['time'] for r in mine]}")
@@ -96,14 +104,14 @@ def check(state: dict, response: dict, now: datetime, errors: list[str]) -> list
 
 
 @pytest.mark.parametrize("orientation", list(ORIENTATIONS))
-@pytest.mark.parametrize("case_id,response,start,span", CASES, ids=[c[0] for c in CASES])
-def test_sweep(open_board, case_id, response, start, span, orientation):
-    board = open_board(response, start, orientation)
+@pytest.mark.parametrize("case_id,response,weather,start,span", CASES, ids=[c[0] for c in CASES])
+def test_sweep(open_board, case_id, response, weather, start, span, orientation):
+    board = open_board(response, start, orientation, weather=weather)
     failures = []
     for minute in range(span):
         for second in (0, 31):   # on the minute and mid-minute, to catch rounding
             now = start.replace(second=0) + timedelta(minutes=minute, seconds=second)
             board.set_time(now)
-            for problem in check(board.state(), response, now, board.errors):
+            for problem in check(board.state(), response, weather, now, board.errors):
                 failures.append(f"{now:%a %H:%M:%S}: {problem}")
     assert not failures, f"{len(failures)} problems, first 15:\n" + "\n".join(failures[:15])
