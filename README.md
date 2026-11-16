@@ -25,13 +25,21 @@ After the reboot, the board opens full screen. If Chromium exits or crashes, the
 
 ```bash
 systemctl --user status pendel-kiosk          # full-screen board
-systemctl --user status pendel-web            # local web server
+systemctl --user status pendel-web            # local web server and screen power
 systemctl --user status pendel-listen         # instant updates from GitHub
 systemctl --user list-timers pendel-update    # next backup check
 journalctl --user -u pendel-listen -n 20      # recent updates
 ```
 
 The web server listens on `127.0.0.1:8080` only, so no other device on your network can reach it. The Pi makes outgoing requests to SL, Open-Meteo, GitHub, and ntfy.sh, and accepts no incoming connections.
+
+## The screen at night
+
+Outside the awake hours (weekdays 06:15–07:15), the board turns the HDMI signal off. Without a signal, the 7-inch panel turns its backlight off too, so the screen is fully dark instead of glowing black.
+
+Tap the screen to wake it for 5 minutes. With the signal off, the tap may not reach the browser, so the web server (`pi/server.py`) reads the touchscreen itself. It turns the signal back on, and the page wakes when it next asks the server, within 2 seconds.
+
+If the page stops asking for 60 seconds, for example while Chromium restarts, the server turns the signal back on, so the screen never stays dark by mistake.
 
 ## Weather
 
@@ -85,6 +93,7 @@ The suite opens `web/index.html` in headless Chromium, serves it recorded SL res
 | File | What it checks |
 | --- | --- |
 | `tests/test_sweep.py` | Steps through each recorded response minute by minute, on the minute and at 31 seconds past, in portrait and landscape. At each step it compares the board with `tests/reference.py`, a separate implementation of the rules. |
+| `tests/test_server.py` | The Pi's web server: it serves the board, switches the HDMI signal when the page asks, turns it back on after a tap, and turns it on if the page goes quiet. |
 | `tests/test_scenarios.py` | One test per situation: every departure state in SL's spec, delays, cancellations, replacement buses, skipped stops, station notices, feed errors, old data, sleep, weekends, and each kind of weather. |
 
 ## Fixtures
@@ -117,7 +126,7 @@ Settings are the `CONFIG` object at the top of the script in `web/index.html`.
 | `deadline` | `"07:10"` | Last departure that reaches work on time. |
 | `deadlineDays` | `[1, 2, 3, 4, 5]` | Days the deadline applies, Monday to Friday. |
 | `morningWindow` | `["06:15", "07:15"]` | When the work status band is active. |
-| `awake` | weekdays `06:15`–`07:15` | When the screen shows the board. At other times it is black until tapped. |
+| `awake` | weekdays `06:15`–`07:15` | When the screen shows the board. At other times the screen is off until tapped. |
 | `wakeMinutes` | `5` | How long a tap keeps the screen on. |
 | `refreshSeconds` | `30` | How often the board asks SL for new times. |
 | `staleSeconds` | `90` | Data older than this is marked as possibly wrong. |
