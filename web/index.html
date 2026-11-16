@@ -14,6 +14,8 @@
     --w-ok: #2257b8; --w-last: #f4f5f7; --w-late: #7a3fe0;
     /* Disruption: used only for delays, cancellations reasons and old data */
     --alert: #f5b400;
+    /* Weather: used only for the weather line */
+    --wx: #7cc4ff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: var(--bg); color: var(--text);
@@ -138,6 +140,8 @@
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 0; background: var(--p1); margin-right: 8px; vertical-align: 1px; }
   #status.bad .dot { background: var(--alert); }
 
+  .wx { color: #0b1a2e; background: var(--wx); font-weight: 800; padding: 1px 8px; letter-spacing: .04em; margin-right: 8px; }
+  .wx-line { font-size: 23px; color: var(--text); }
   #sleep { position: fixed; inset: 0; background: #000; z-index: 10; display: none; }
   body.asleep #sleep { display: block; }
 
@@ -207,6 +211,12 @@ const CONFIG = {
   awake: { days: [1, 2, 3, 4, 5], from: "06:15", to: "07:15" },  // screen on; otherwise black until tapped
   wakeMinutes: 5,              // how long a tap keeps the screen on
   maxRows: 4,                  // departures shown, including yours; rows that don't fit are dropped
+  weather: {
+    lat: 59.4535, lon: 17.8058,  // Kallhäll
+    refreshMinutes: 10,
+    maxAgeMinutes: 180,          // older forecasts are ignored
+    slipperyExtraMinutes: 2,     // added to the walk in snow or freezing rain
+  },
 };
 
 /* Pace levels, slowest to fastest. ratio = usable minutes / relaxed walk minutes. */
@@ -320,6 +330,43 @@ async function load() {
   render();
 }
 
+/* ---------- Weather (Open-Meteo, no key) ---------- */
+/* WMO weather codes */
+const isIceCode = c => [56, 57, 66, 67].includes(c);
+const isSnowCode = c => (c >= 71 && c <= 77) || c === 85 || c === 86;
+const isRainCode = c => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95;
+let weather = null;      // minutely_15 block of the last good response
+let weatherAt = null;    // real time it arrived
+async function loadWeather() {
+  const w = CONFIG.weather;
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${w.lat}&longitude=${w.lon}&minutely_15=precipitation,snowfall,temperature_2m,weather_code&timezone=Europe%2FStockholm&forecast_days=2&models=metno_seamless`, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    weather = (await res.json()).minutely_15 || null; weatherAt = Date.now();
+  } catch (e) { /* no weather: the board works without it */ }
+  document.body.dataset.weather = weather ? "ok" : "none";   // read by the tests
+  render();
+}
+function weatherSlots() {
+  if (!weather || !weather.time || Date.now() - weatherAt > CONFIG.weather.maxAgeMinutes * 60000) return [];
+  return weather.time.map((t, i) => ({ start: parseLocal(t), code: weather.weather_code?.[i], rain: weather.precipitation?.[i] || 0,
+    snow: weather.snowfall?.[i] || 0, temp: weather.temperature_2m?.[i] }));
+}
+/* Weather on the walk to a departure: every 15-minute slot that overlaps the walk before it */
+function walkWeather(slots, dep) {
+  const from = dep - (CONFIG.walkMinutes + CONFIG.platformBufferMinutes + CONFIG.weather.slipperyExtraMinutes) * 60000;
+  const on = slots.filter(s => s.start < dep && s.start.getTime() + 15 * 60000 > from);
+  if (!on.length) return null;
+  const ice = on.some(s => isIceCode(s.code));
+  const snow = !ice && on.some(s => isSnowCode(s.code) || s.snow > 0);
+  const rain = !ice && !snow && on.some(s => isRainCode(s.code) || s.rain >= 0.1);
+  return { ice, snow, rain, extra: ice || snow ? CONFIG.weather.slipperyExtraMinutes : 0 };
+}
+function weatherWord(c) {
+  return c === 0 ? "clear" : c <= 2 ? "partly cloudy" : c === 3 ? "overcast" : c === 45 || c === 48 ? "fog"
+    : isIceCode(c) ? "freezing rain" : c >= 51 && c <= 55 ? "drizzle" : isSnowCode(c) ? "snow" : c >= 95 ? "thunder" : isRainCode(c) ? "rain" : "";
+}
+
 /* ---------- Sleep: black screen outside the awake hours; a tap wakes it ---------- */
 let wakeUntil = 0;
 function isAwake() {
@@ -340,7 +387,7 @@ async function checkVersion() {
 }
 
 /* ---------- Logic ---------- */
-const paceFor = left => PACES.find(p => (left - CONFIG.platformBufferMinutes) / CONFIG.walkMinutes >= p.min);
+const paceFor = (left, extra = 0) => PACES.find(p => (left - CONFIG.platformBufferMinutes) / (CONFIG.walkMinutes + extra) >= p.min);
 let secFrac = 0;   // seconds past the displayed clock minute, as a fraction of a minute
 const minutesLabel = left => { const v = left + secFrac; return v < 1 ? "<1" : String(Math.floor(v)); };
 function morningActive() {
@@ -382,7 +429,9 @@ function render() {
   st.innerHTML = fresh ? `<span class="dot"></span>Live from SL · ${ageText(age)} ago`
     : departures === null && !fetchError ? "Connecting to SL…"
     : `<span class="dot"></span>SL not answering${failingSince ? " · " + ageText(Date.now() - failingSince) : ""} · retrying${lastOk ? " · data " + ageText(age) + " old" : ""}`;
-  document.getElementById("foot-right").textContent = fakeNow ? "TEST " + fakeNow : "";
+  const nowSlot = weatherSlots().find(s => s.start <= n && n < s.start.getTime() + 15 * 60000);
+  const wxNow = nowSlot && nowSlot.temp != null ? `${Math.round(nowSlot.temp)} °C${weatherWord(nowSlot.code) ? " · " + weatherWord(nowSlot.code) : ""}` : "";
+  document.getElementById("foot-right").textContent = [wxNow, fakeNow ? "TEST " + fakeNow : ""].filter(Boolean).join(" · ");
 
   // ---- Loading ----
   if (departures === null && !fetchError) {
@@ -401,26 +450,30 @@ function render() {
   }
 
   const deadline = atToday(CONFIG.deadline);
+  const slots = weatherSlots();
+  for (const d of departures) d.wx = walkWeather(slots, d.expected);
+  const extraOf = d => d.wx ? d.wx.extra : 0;
+  const paceOf = d => paceFor(mins(n, d.expected), extraOf(d));
   const live = departures.filter(d => mins(n, d.expected) > -0.5);
-  const catchable = live.filter(d => !d.cancelled && paceFor(mins(n, d.expected)).level > 0);
+  const catchable = live.filter(d => !d.cancelled && paceOf(d).level > 0);
   const ontime = catchable.filter(d => d.expected <= deadline);
-  const realistic = ontime.filter(d => paceFor(mins(n, d.expected)).level <= 5);
+  const realistic = ontime.filter(d => paceOf(d).level <= 5);
   const cancelledBefore = live.filter(d => d.cancelled && d.expected <= deadline);
-  const justMissed = departures.filter(d => !d.cancelled && d.expected <= deadline && mins(n, d.expected) > -5 && paceFor(mins(n, d.expected)).level === 0);
+  const justMissed = departures.filter(d => !d.cancelled && d.expected <= deadline && mins(n, d.expected) > -5 && paceOf(d).level === 0);
   const portraitMode = innerHeight > innerWidth;
   const winStart = atToday(CONFIG.morningWindow[0]);
 
   // Featured train: the easiest one that still works.
   // Weekday mornings: among trains that reach work on time. Otherwise (or when late): within 15 min of the first one.
   // Easy walk and Walk count as equally relaxed, so the earliest relaxed train wins.
-  const effort = d => Math.max(2, paceFor(mins(n, d.expected)).level);
+  const effort = d => Math.max(2, paceOf(d).level);
   let pool = morning && ontime.length ? ontime
     : catchable.filter(d => catchable.length && mins(catchable[0].expected, d.expected) <= 15);
   let next = pool.reduce((best, d) => !best || effort(d) < effort(best) ? d : best, null);
   const longshot = null;
   // An earlier, faster train you could also catch
-  const earlier = next ? catchable.filter(d => d.expected <= next.expected - 5 * 60000 && paceFor(mins(n, d.expected)).level <= 4)
-    .reduce((b, d) => !b || paceFor(mins(n, d.expected)).level < paceFor(mins(n, b.expected)).level ? d : b, null) : null;
+  const earlier = next ? catchable.filter(d => d.expected <= next.expected - 5 * 60000 && paceOf(d).level <= 4)
+    .reduce((b, d) => !b || paceOf(d).level < paceOf(b).level ? d : b, null) : null;
 
   // ---- Band: same words in both orientations. Landscape: one line. Portrait: two lines. ----
   let main1 = "", detail = "", cls = "neutral";
@@ -450,9 +503,9 @@ function render() {
     heroTrain = next;
     main.className = "";
     const left = mins(n, next.expected);
-    const pace = paceFor(left);
+    const pace = paceOf(next);
     const delay = Math.round(mins(next.scheduled, next.expected));
-    const leaveAt = new Date(next.expected - (CONFIG.walkMinutes + CONFIG.platformBufferMinutes) * 60000);
+    const leaveAt = new Date(next.expected - (CONFIG.walkMinutes + extraOf(next) + CONFIG.platformBufferMinutes) * 60000);
     const leaveIn = mins(n, leaveAt);
     const lateMode = morning && next.expected > deadline;
     const later = catchable.filter(d => d.expected > next.expected && (!morning || lateMode || d.expected <= deadline));
@@ -463,15 +516,15 @@ function render() {
     if (leaveMode) lead = `for a normal walk · ${vehicle} in <b class="num" style="white-space:nowrap">${minutesLabel(left)} min</b>`;
     if (earlier && !stale) {
       // The featured train is the calm option; mention the earlier, faster one
-      const ep = paceFor(mins(n, earlier.expected));
+      const ep = paceOf(earlier);
       const lineE = `Or the <b class="num">${hhmm(earlier.expected)}</b> · ${minutesLabel(mins(n, earlier.expected))} min${chip(ep)}`;
       lead = leaveMode ? lead : lineE;
       hint = leaveMode ? `Or the ${hhmm(earlier.expected)} if you go now${chip(ep)}` : (morning && !lateMode && earlier.expected <= deadline ? "Both on time." : "");
     } else if (!leaveMode && pace.level >= 3) {
       // Suggest the next later train that needs a calmer pace (it is always in the list)
-      const pick = later.find(d => paceFor(mins(n, d.expected)).level < pace.level);
+      const pick = later.find(d => paceOf(d).level < pace.level);
       if (pick) {
-        const pp = paceFor(mins(n, pick.expected));
+        const pp = paceOf(pick);
         lead = `Or the <b class="num">${hhmm(pick.expected)}</b> · ${minutesLabel(mins(n, pick.expected))} min${chip(pp)}`;
         const both = morning && !lateMode && pick.expected <= deadline;
         hint = both ? "Both on time." : "";
@@ -489,6 +542,11 @@ function render() {
     heroPace = shown;
     hero.style.borderLeftColor = stale ? "var(--alert)" : shown.color;
     hero.className = "hero" + (stale ? " stale" : "");
+    const wx = next.wx;
+    const wxLine = !wx ? "" : wx.ice ? `<div class="wx-line"><span class="wx">ICY</span>Freezing rain · ${CONFIG.weather.slipperyExtraMinutes} min added to the walk</div>`
+      : wx.snow ? `<div class="wx-line"><span class="wx">SNOW</span>${CONFIG.weather.slipperyExtraMinutes} min added to the walk</div>`
+      : wx.rain ? `<div class="wx-line"><span class="wx">RAIN</span>Take an umbrella</div>` : "";
+    hero.dataset.wx = !wx ? "" : wx.ice ? "ice" : wx.snow ? "snow" : wx.rain ? "rain" : "dry";
     hero.dataset.mode = leaveMode ? "leave" : "go"; hero.dataset.train = hhmm(next.expected);
     hero.dataset.big = leaveMode ? minutesLabel(big) : ""; hero.dataset.left = minutesLabel(left); hero.dataset.pace = shown.name;
     hero.innerHTML = `
@@ -496,7 +554,7 @@ function render() {
         <div class="pace-col">${meter(shown)}<div class="pace-cap" style="color:${shown.color}">${shown.name}</div></div></div></div>
       <div class="lines">
         ${heroTrain && isBus(heroTrain) ? `<div class="lead"><span class="bus">BUS replaces your train</span></div>` : ""}
-        ${stale ? `<div class="lead">Times may be off by ${ageText(age)} or more</div>` : `${lead ? `<div class="lead">${lead}</div>` : ""}${hint ? `<div class="hint">${hint}</div>` : ""}`}
+        ${stale ? `<div class="lead">Times may be off by ${ageText(age)} or more</div>` : `${lead ? `<div class="lead">${lead}</div>` : ""}${wxLine}${hint ? `<div class="hint">${hint}</div>` : ""}`}
       </div>`;
   }
 
@@ -504,7 +562,7 @@ function render() {
   const landscape = innerWidth > innerHeight;
   // Start at the earliest train worth mentioning (the faster alternative, or your train), so yours is always listed
   const startT = (earlier || heroTrain) ? (earlier || heroTrain).expected : null;
-  const rows = live.filter(d => (d.cancelled || paceFor(mins(n, d.expected)).level > 0) && (!startT || d.expected >= startT || (morning && d.cancelled && d.expected <= deadline))).slice(0, CONFIG.maxRows);
+  const rows = live.filter(d => (d.cancelled || paceOf(d).level > 0) && (!startT || d.expected >= startT || (morning && d.cancelled && d.expected <= deadline))).slice(0, CONFIG.maxRows);
   const lastOnTime = morning && realistic.length ? realistic[realistic.length - 1] : null;
   const keep = d => d === heroTrain || d === lastOnTime || (d.cancelled && d.expected <= deadline);
   const roomy = true;
@@ -516,7 +574,7 @@ function render() {
       html += `<div class="divider">After 07:10 · late for work</div>`; dividerDone = true;
     }
     const left = mins(n, d.expected);
-    const pace = paceFor(left);
+    const pace = paceOf(d);
     const delay = Math.round(mins(d.scheduled, d.expected));
     const notes = [];
     const mine = d === heroTrain;
@@ -561,11 +619,14 @@ window.__test = {
   setAt(iso) { frozenAt = parseLocal(iso); render(); },
   feed(data) { departures = parseDepartures(data); siteNotes = (data.stop_deviations || []).map(v => v.message).filter(Boolean);
     lastOk = Date.now(); fetchError = null; failingSince = null; render(); },
+  feedWeather(data) { weather = data ? data.minutely_15 : null; weatherAt = Date.now(); render(); },
 };
 
 load();
+loadWeather();
 checkVersion();
 setInterval(load, CONFIG.refreshSeconds * 1000);
+setInterval(loadWeather, CONFIG.weather.refreshMinutes * 60 * 1000);
 setInterval(checkVersion, 5 * 60 * 1000);
 setInterval(render, 1000);
 </script>
