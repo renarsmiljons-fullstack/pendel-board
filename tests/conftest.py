@@ -8,6 +8,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -99,8 +100,8 @@ def browser():
 class Board:
     """An open board page with a fixed response and a controllable clock."""
 
-    def __init__(self, page, errors):
-        self.page, self.errors = page, errors
+    def __init__(self, page, errors, calls):
+        self.page, self.errors, self._calls = page, errors, calls
 
     def set_time(self, dt: datetime):
         self.page.evaluate("t => window.__test.setAt(t)", iso(dt))
@@ -111,6 +112,11 @@ class Board:
     def state(self) -> dict:
         return self.page.evaluate(STATE_JS)
 
+    @property
+    def calls(self) -> dict:
+        """How many requests the page has sent to SL and to Open-Meteo."""
+        return dict(self._calls)
+
     def tap(self):
         self.page.mouse.click(50, 50)
 
@@ -120,13 +126,18 @@ def open_board(browser):
     pages = []
 
     def _open(response=None, when: datetime | None = None, orientation="portrait", mode="ok", sleep=False, extra="",
-              weather: dict | None = None):
-        """weather: an Open-Meteo response, or None for a weather service that is down."""
+              weather: dict | None = None, plan: dict | None = None):
+        """weather: an Open-Meteo response, or None for a weather service that is down.
+        plan: journeys from real journey planner answers, or None for a planner that is down. Like the
+        planner, each answer holds the first 3 journeys that leave at or after the asked time."""
         page = browser.new_page(viewport=ORIENTATIONS[orientation])
         errors: list[str] = []
         page.on("pageerror", lambda e: errors.append(str(e)))
 
+        calls = {"sl": 0, "weather": 0, "plan": 0}
+
         def handler(route):
+            calls["sl"] += 1
             if mode == "ok":
                 route.fulfill(status=200, content_type="application/json", body=json.dumps(response),
                               headers={"access-control-allow-origin": "*"})
@@ -137,6 +148,7 @@ def open_board(browser):
         page.route("https://transport.integration.sl.se/**", handler)
 
         def weather_handler(route):
+            calls["weather"] += 1
             if weather is None:
                 route.fulfill(status=503, body="down", headers={"access-control-allow-origin": "*"})
             else:
@@ -144,16 +156,36 @@ def open_board(browser):
                               headers={"access-control-allow-origin": "*"})
 
         page.route("https://api.open-meteo.com/**", weather_handler)
+
+        def plan_handler(route):
+            calls["plan"] += 1
+            if plan is None:
+                route.fulfill(status=503, body="down", headers={"access-control-allow-origin": "*"})
+            else:
+                q = parse_qs(urlparse(route.request.url).query)
+                asked = datetime.strptime(q["itd_date"][0] + q["itd_time"][0], "%Y%m%d%H%M")
+                def local(j):
+                    utc = datetime.fromisoformat(j["legs"][0]["origin"]["departureTimePlanned"].replace("Z", "+00:00"))
+                    return utc.astimezone(ZoneInfo("Europe/Stockholm")).replace(tzinfo=None)
+                later = sorted((j for j in plan["journeys"] if local(j) >= asked), key=local)
+                answer = {"journeys": later[:3]}
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(answer),
+                              headers={"access-control-allow-origin": "*"})
+
+        page.route("https://journeyplanner.integration.sl.se/**", plan_handler)
         query = f"?at={iso(when)}" if when else "?"
         if not sleep:
             query += "&nosleep"
         page.goto(f"{BOARD}{query}{extra}")
         page.wait_for_function("() => document.getElementById('hero').dataset.mode !== undefined", timeout=5000)
+        # An asleep board fetches nothing, so there is nothing to wait for
+        asleep = "document.body.classList.contains('asleep')"
         if mode == "ok":
-            page.wait_for_function("() => (document.getElementById('hero').dataset.mode || '') !== 'loading'", timeout=5000)
-        page.wait_for_function("() => !!document.body.dataset.weather", timeout=5000)
+            page.wait_for_function(f"() => {asleep} || (document.getElementById('hero').dataset.mode || '') !== 'loading'", timeout=5000)
+        page.wait_for_function(f"() => {asleep} || !!document.body.dataset.weather", timeout=5000)
+        page.wait_for_function(f"() => {asleep} || !!document.body.dataset.plan", timeout=5000)
         pages.append(page)
-        return Board(page, errors)
+        return Board(page, errors, calls)
 
     yield _open
     for p in pages:

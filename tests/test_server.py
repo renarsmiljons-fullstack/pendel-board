@@ -56,7 +56,7 @@ def test_serves_the_board(server):
 def test_signal_follows_the_page(server):
     _, base, calls = server
     _, body = get(f"{base}/screen?want=off")
-    assert json.loads(body) == {"tap": 0}
+    assert json.loads(body) == {"tap": 0, "on": False}
     get(f"{base}/screen?want=off")              # no change: no second call
     get(f"{base}/screen?want=on")
     assert calls() == ["--output HDMI-A-1 --off", "--output HDMI-A-1 --on"]
@@ -95,5 +95,18 @@ def test_signal_comes_back_when_the_page_goes_quiet(server):
     mod.check_page()
     assert calls()[-1] == "--output HDMI-A-1 --off", "the page asked recently"
     mod.state["last_request"] -= mod.PAGE_TIMEOUT + 1
+    mod.check_page()
+    assert calls()[-1] == "--output HDMI-A-1 --on"
+
+
+def test_reading_the_state_changes_nothing(server):
+    mod, base, calls = server
+    _, body = get(f"{base}/screen")
+    assert json.loads(body) == {"tap": 0, "on": True} and calls() == []
+    mod.state["last_request"] -= mod.PAGE_TIMEOUT + 1
+    get(f"{base}/screen")                       # not the page: the watchdog still sees a quiet page
+    get(f"{base}/screen?want=off")
+    mod.state["last_request"] -= mod.PAGE_TIMEOUT + 1
+    get(f"{base}/screen")
     mod.check_page()
     assert calls()[-1] == "--output HDMI-A-1 --on"
