@@ -9,7 +9,10 @@ see taps, so this server reads the touchscreen directly: a tap turns the signal 
 the page learns about the tap from its next /screen request.
 
 GET /screen?want=on|off
-    Sets the HDMI signal and returns {"tap": <time of the last tap, in ms>}.
+    Sets the HDMI signal and returns {"tap": <time of the last tap, in ms>, "on": <signal on>}.
+GET /screen
+    Returns the same without changing anything. The update scripts use it to skip
+    checking GitHub while the screen is off.
 
 If the page stops asking for 60 seconds (Chromium crashed or is starting), the signal goes
 back on, so the screen never stays dark by mistake.
@@ -125,12 +128,13 @@ class Handler(SimpleHTTPRequestHandler):
             return super().do_GET()
         want = parse_qs(url.query).get("want", [""])[0]
         with lock:
-            state["last_request"] = time.time()
+            if want:
+                state["last_request"] = time.time()
             if want == "on":
                 set_signal(True)
             elif want == "off" and time.time() * 1000 - state["tap"] > TAP_GRACE * 1000:
                 set_signal(False)
-            body = json.dumps({"tap": state["tap"]}).encode()
+            body = json.dumps({"tap": state["tap"], "on": state["on"]}).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")

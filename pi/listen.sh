@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pulls a new version of the board soon after CI moves the `stable` branch.
-# Run by pendel-listen.service. Every 30 seconds it asks GitHub which commit `stable`
+# Run by pendel-listen.service. While the screen is on, every 30 seconds it asks GitHub which commit `stable`
 # points to (`git ls-remote`: one small request, no account or secret), and runs update.sh
 # when that commit differs from the one on the Pi. The Pi accepts no incoming connections.
 # pendel-update.timer still checks every 10 minutes as a backup.
@@ -11,7 +11,14 @@ BRANCH="${2:-stable}"
 INTERVAL="${INTERVAL:-30}"
 cd "$DIR"
 
+# While the screen is off, nothing needs the newest version: skip asking GitHub.
+# The board wakes at 06:15 or on a tap, and the next check after that updates it.
+screen_off() {
+  curl -s --max-time 2 "http://127.0.0.1:${PORT:-8080}/screen" | grep -q '"on": false'
+}
+
 while true; do
+  if screen_off; then sleep "$INTERVAL"; continue; fi
   remote="$(git ls-remote origin "refs/heads/$BRANCH" 2>/dev/null | cut -f1)"
   if [ -n "$remote" ] && [ "$remote" != "$(git rev-parse HEAD)" ]; then
     echo "New version on $BRANCH: ${remote:0:7}"
