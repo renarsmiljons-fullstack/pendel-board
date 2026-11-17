@@ -125,6 +125,7 @@
   .bus { color: #111; background: var(--alert); font-weight: 800; padding: 1px 7px; letter-spacing: .03em; }
   .row .note { grid-column: 2 / 5; font-size: 20px; color: var(--muted); margin-top: 3px;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .row .note .plan { color: var(--muted); font-style: italic; }
   .row .note .warn { color: var(--alert); font-weight: 700; font-size: 22px; }
   .row .note .trk { color: var(--alert); box-shadow: inset 0 0 0 2px var(--alert); font-weight: 700; padding: 1px 7px; }
   .row .note .cx { color: var(--alert); box-shadow: inset 0 0 0 2px var(--alert); font-weight: 800; padding: 1px 7px; letter-spacing: .05em; }
@@ -315,18 +316,81 @@ let lastOk = null;         // real time of last successful fetch
 let fetchError = null;
 let failingSince = null;  // real time the feed started failing
 
+/* Takes a response from SL. Returns false if it was set aside. */
+function accept(data) {
+  const parsed = parseDepartures(data);
+  // SL sometimes answers with no trains for a single refresh. While the last real answer still has
+  // trains to come, keep it: the footer says the times are from that answer.
+  if (!parsed.length && departures && departures.some(d => mins(now(), d.expected) > -0.5)) {
+    fetchError = "no trains in SL's answer"; if (!failingSince) failingSince = Date.now();
+    return false;
+  }
+  departures = parsed;
+  siteNotes = (data.stop_deviations || []).map(v => v.message).filter(Boolean);
+  lastOk = Date.now(); fetchError = null; failingSince = null;
+  return true;
+}
+
 async function load() {
   if (fakeStale && departures) return;               // test mode: freeze after first load
   try {
     const res = await fetch(`https://transport.integration.sl.se/v1/sites/${CONFIG.siteId}/departures?transport=TRAIN&forecast=120`, { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    departures = parseDepartures(data);
-    siteNotes = (data.stop_deviations || []).map(v => v.message).filter(Boolean);
-    lastOk = Date.now(); fetchError = null; failingSince = null;
+    accept(await res.json());
     if (fakeStale) { lastOk = Date.now() - fakeStale * 60000; fetchError = "HTTP 503"; }
   } catch (e) { fetchError = e.message || String(e); if (!failingSince) failingSince = Date.now(); }
   render();
+}
+
+/* ---------- Timetable (SL journey planner, no key) ---------- */
+// SL's live feed sometimes leaves out trains 20-60 minutes ahead (seen on 17 November 2026), so the
+// board would call an earlier train your last one. The journey planner has the timetable: the board
+// adds its trains to Odenplan that the live feed doesn't list yet, marked as timetable times.
+const PLAN_URL = "https://journeyplanner.integration.sl.se/v2/trips?type_origin=any&name_origin=9091001000009701"
+  + "&type_destination=any&name_destination=9091001000009117&calc_number_of_trips=3&max_changes=0";
+const PLAN_MAX_AGE = 30 * 60000;   // older timetable answers are ignored
+let planned = [];
+let plannedAt = null;
+const two = n => String(n).padStart(2, "0");
+function fromUTC(iso) { const p = stockholmParts(new Date(iso)); return naive(+p.year, +p.month, +p.day, +p.hour, +p.minute, +p.second); }
+async function loadPlan() {
+  const found = new Map();
+  const n = now();
+  const until = Math.max(n.getTime() + 60 * 60000, atToday(CONFIG.deadline).getTime() + 15 * 60000);
+  let from = n;
+  try {
+    // The planner gives 3 trips per answer: ask again from the last one until an hour ahead (at most 4 asks)
+    for (let i = 0; i < 4 && from.getTime() < until; i++) {
+      const res = await fetch(`${PLAN_URL}&itd_date=${from.getUTCFullYear()}${two(from.getUTCMonth() + 1)}${two(from.getUTCDate())}`
+        + `&itd_time=${hhmm(from).replace(":", "")}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const legs = ((await res.json()).journeys || []).filter(j => (j.legs || []).length === 1).map(j => j.legs[0])
+        .filter(l => l.origin && l.origin.departureTimePlanned && /^Kallhäll/.test(l.origin.name || ""));
+      if (!legs.length) break;
+      for (const l of legs) {
+        const scheduled = fromUTC(l.origin.departureTimePlanned);
+        found.set(scheduled.getTime(), {
+          line: l.transportation?.disassembledName || "", bus: false,
+          destination: displayName(l.transportation?.destination?.name || ""),
+          scheduled, expected: l.origin.departureTimeEstimated ? fromUTC(l.origin.departureTimeEstimated) : scheduled,
+          cancelled: false, replaced: false, uncertain: false, track: "", note: "", planned: true,
+        });
+      }
+      const last = Math.max(...legs.map(l => fromUTC(l.origin.departureTimePlanned).getTime()));
+      if (last < from.getTime()) break;
+      from = new Date(last + 60000);
+    }
+    planned = [...found.values()]; plannedAt = Date.now();
+  } catch (e) { /* no timetable: the board uses the live feed alone */ }
+  document.body.dataset.plan = planned.length ? "ok" : "none";   // read by the tests
+  render();
+}
+/* The live feed plus timetable trains it doesn't list. A live train matches a timetable train
+   with the same scheduled time (within 90 s); the live one always wins. */
+function withPlan(feed) {
+  if (!plannedAt || Date.now() - plannedAt > PLAN_MAX_AGE) return feed;
+  const extra = planned.filter(p => !feed.some(d => Math.abs(d.scheduled - p.scheduled) < 90000));
+  return extra.length ? [...feed, ...extra].sort((a, b) => a.expected - b.expected) : feed;
 }
 
 /* ---------- Weather (Open-Meteo, no key) ---------- */
@@ -420,8 +484,13 @@ const cap = t => t[0].toUpperCase() + t.slice(1);
 function ageText(ms) { const s = Math.round(ms / 1000); return s < 90 ? `${s} s` : `${Math.round(s / 60)} min`; }
 function setBand(cls, html) { const b = document.getElementById("band"); b.className = cls || ""; b.innerHTML = html || ""; }
 
+/* No requests to SL or Open-Meteo while the screen is off. Waking up fetches both at once. */
+let wasAwake = null;
 function render() {
-  document.body.classList.toggle("asleep", !isAwake());
+  const awake = isAwake();
+  document.body.classList.toggle("asleep", !awake);
+  if (awake && wasAwake === false) { wasAwake = true; load(); loadWeather(); loadPlan(); }
+  wasAwake = awake;
   const n = now();
   secFrac = n.getUTCSeconds() / 60;
   document.getElementById("clock").textContent = hhmm(n);
@@ -436,8 +505,9 @@ function render() {
 
   // Footer: data freshness, one short line
   const st = document.getElementById("status");
-  st.className = fresh ? "" : "bad";
-  st.innerHTML = fresh ? `<span class="dot"></span>Live from SL · ${ageText(age)} ago`
+  st.className = fresh && !fetchError ? "" : "bad";
+  st.innerHTML = fetchError && fresh ? `<span class="dot"></span>No new times from SL · showing times from ${ageText(age)} ago`
+    : fresh ? `<span class="dot"></span>Live from SL · ${ageText(age)} ago`
     : departures === null && !fetchError ? "Connecting to SL…"
     : `<span class="dot"></span>SL not answering${failingSince ? " · " + ageText(Date.now() - failingSince) : ""} · retrying${lastOk ? " · data " + ageText(age) + " old" : ""}`;
   const nowSlot = weatherSlots().find(s => s.start <= n && n < s.start.getTime() + 15 * 60000);
@@ -463,15 +533,16 @@ function render() {
 
   const deadline = atToday(CONFIG.deadline);
   const slots = weatherSlots();
-  for (const d of departures) d.wx = walkWeather(slots, d.expected);
+  const deps = withPlan(departures);
+  for (const d of deps) d.wx = walkWeather(slots, d.expected);
   const extraOf = d => d.wx ? d.wx.extra : 0;
   const paceOf = d => paceFor(mins(n, d.expected), extraOf(d));
-  const live = departures.filter(d => mins(n, d.expected) > -0.5);
+  const live = deps.filter(d => mins(n, d.expected) > -0.5);
   const catchable = live.filter(d => !d.cancelled && paceOf(d).level > 0);
   const ontime = catchable.filter(d => d.expected <= deadline);
   const realistic = ontime.filter(d => paceOf(d).level <= 5);
   const cancelledBefore = live.filter(d => d.cancelled && d.expected <= deadline);
-  const justMissed = departures.filter(d => !d.cancelled && d.expected <= deadline && mins(n, d.expected) > -5 && paceOf(d).level === 0);
+  const justMissed = deps.filter(d => !d.cancelled && d.expected <= deadline && mins(n, d.expected) > -5 && paceOf(d).level === 0);
   const portraitMode = innerHeight > innerWidth;
   const winStart = atToday(CONFIG.morningWindow[0]);
 
@@ -546,7 +617,10 @@ function render() {
   const landscape = innerWidth > innerHeight;
   // Start at the earliest train worth mentioning (the faster alternative, or your train), so yours is always listed
   const startT = (earlier || heroTrain) ? (earlier || heroTrain).expected : null;
-  const rows = live.filter(d => (d.cancelled || paceOf(d).level > 0) && (!startT || d.expected >= startT || (morning && d.cancelled && d.expected <= deadline))).slice(0, CONFIG.maxRows);
+  // On a work morning, list only trains that reach work on time while one you can walk or run to is left
+  const onTimeOnly = morning && realistic.length > 0;
+  const rows = live.filter(d => (d.cancelled || paceOf(d).level > 0) && (!startT || d.expected >= startT || (morning && d.cancelled && d.expected <= deadline))
+    && (!onTimeOnly || d.expected <= deadline)).slice(0, CONFIG.maxRows);
   const lastOnTime = morning && realistic.length ? realistic[realistic.length - 1] : null;
   const keep = d => d === heroTrain || d === lastOnTime || (d.cancelled && d.expected <= deadline);
   const roomy = true;
@@ -565,6 +639,7 @@ function render() {
     if (mine) notes.push(`<span class="mine-tag">Your train</span>`);
     if (isBus(d) && !d.cancelled) notes.unshift(`<span class="bus">BUS replaces train</span>`);
     if (d.cancelled) notes.push(`<span class="cx">CANCELLED</span>`);
+    if (d.planned) notes.push(`<span class="plan">Timetable · not live yet</span>`);
     if (d.track) notes.push(`track ${esc(d.track)}`);
     if (d.uncertain && !d.cancelled) notes.push(`<span class="warn">Time uncertain</span>`);
     if (d.replaced) notes.push(`<span class="warn">Replaced</span>`);
@@ -601,18 +676,18 @@ function render() {
 /* Test API: lets the test suite step the clock and feed responses without waiting */
 window.__test = {
   setAt(iso) { frozenAt = parseLocal(iso); render(); },
-  feed(data) { departures = parseDepartures(data); siteNotes = (data.stop_deviations || []).map(v => v.message).filter(Boolean);
-    lastOk = Date.now(); fetchError = null; failingSince = null; render(); },
+  feed(data) { accept(data); render(); },
   feedWeather(data) { weather = data ? data.minutely_15 : null; weatherAt = Date.now(); render(); },
 };
 
-load();
-loadWeather();
+wasAwake = isAwake();
+if (wasAwake) { load(); loadWeather(); loadPlan(); } else render();
 checkVersion();
 syncScreen();
 setInterval(syncScreen, 2000);
-setInterval(loadWeather, CONFIG.weather.refreshMinutes * 60 * 1000);
-setInterval(load, CONFIG.refreshSeconds * 1000);
+setInterval(() => isAwake() && loadWeather(), CONFIG.weather.refreshMinutes * 60 * 1000);
+setInterval(() => isAwake() && load(), CONFIG.refreshSeconds * 1000);
+setInterval(() => isAwake() && loadPlan(), 5 * 60 * 1000);
 setInterval(checkVersion, 30 * 1000);
 setInterval(render, 1000);
 </script>
