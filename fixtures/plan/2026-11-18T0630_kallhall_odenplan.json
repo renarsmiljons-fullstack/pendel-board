@@ -1,0 +1,69 @@
+{
+ "recorded_at": "2026-11-17T06:52:00Z",
+ "request": "GET https://journeyplanner.integration.sl.se/v2/trips?type_origin=any&name_origin=9091001000009701&type_destination=any&name_destination=9091001000009117&calc_number_of_trips=3&max_changes=0&itd_date=20261118&itd_time=0630",
+ "note": "Real answer from SL's journey planner, trimmed to the fields the board reads.",
+ "response": {
+  "journeys": [
+   {
+    "legs": [
+     {
+      "origin": {
+       "name": "Kallhäll, Järfälla",
+       "departureTimePlanned": "2026-11-18T05:25:00Z",
+       "departureTimeEstimated": "2026-11-18T05:25:00Z"
+      },
+      "destination": {
+       "name": "Stockholm Odenplan, Stockholm"
+      },
+      "transportation": {
+       "disassembledName": "43",
+       "destination": {
+        "name": "Västerhaninge"
+       }
+      }
+     }
+    ]
+   },
+   {
+    "legs": [
+     {
+      "origin": {
+       "name": "Kallhäll, Järfälla",
+       "departureTimePlanned": "2026-11-18T05:33:00Z",
+       "departureTimeEstimated": "2026-11-18T05:33:00Z"
+      },
+      "destination": {
+       "name": "Stockholm Odenplan, Stockholm"
+      },
+      "transportation": {
+       "disassembledName": "43X",
+       "destination": {
+        "name": "Nynäshamn"
+       }
+      }
+     }
+    ]
+   },
+   {
+    "legs": [
+     {
+      "origin": {
+       "name": "Kallhäll, Järfälla",
+       "departureTimePlanned": "2026-11-18T05:40:00Z",
+       "departureTimeEstimated": "2026-11-18T05:40:00Z"
+      },
+      "destination": {
+       "name": "Stockholm Odenplan, Stockholm"
+      },
+      "transportation": {
+       "disassembledName": "43",
+       "destination": {
+        "name": "Västerhaninge"
+       }
+      }
+     }
+    ]
+   }
+  ]
+ }
+}
