@@ -53,7 +53,7 @@ A timetable train has no live data: if SL cancels it before it reaches the live 
 
 ## Weather
 
-The board asks Open-Meteo for the Kallhäll forecast every 10 minutes, in 15-minute steps. For each departure it looks at the forecast for the walk to it: the 15-minute steps that overlap the 9.5 minutes before the train leaves.
+The board asks Open-Meteo for the Kallhäll forecast every 10 minutes, in 15-minute steps. For each departure it looks at the forecast for the walk to it: the 15-minute steps that overlap the 10.5 minutes before the train leaves.
 
 | Weather on the walk | What the board does |
 | --- | --- |
@@ -118,7 +118,7 @@ Settings are the `CONFIG` object at the top of the script in `web/index.html`.
 | --- | --- | --- |
 | `siteId` | `9701` | SL site to show (Kallhäll). |
 | `directionCode` | `1` | Direction to show. `1` is toward Stockholm City and Odenplan. |
-| `walkMinutes` | `7` | Walk from the apartment to the platform at a normal pace. |
+| `walkMinutes` | `8` | Walk from the apartment to the platform at a normal pace. |
 | `platformBufferMinutes` | `0.5` | Extra time to reach the platform and board. |
 | `deadline` | `"07:10"` | Last departure that reaches work on time. |
 | `deadlineDays` | `[1, 2, 3, 4, 5]` | Days the deadline applies, Monday to Friday. |
