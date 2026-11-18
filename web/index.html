@@ -201,7 +201,7 @@
 const CONFIG = {
   siteId: 9701,                // Kallhäll (SL Transport API site id)
   directionCode: 1,            // 1 = toward Stockholm City / Odenplan
-  walkMinutes: 7,              // relaxed walk from the apartment to the platform
+  walkMinutes: 8,              // relaxed walk from the apartment to the platform
   platformBufferMinutes: 0.5,  // time to get down to the platform and board
   deadline: "07:10",           // last train that still gets you to work on time
   deadlineDays: [1, 2, 3, 4, 5],
@@ -615,12 +615,10 @@ function render() {
 
   // ---- List: later trains (not the hero, not the long shot, not missed ones) ----
   const landscape = innerWidth > innerHeight;
-  // Start at the earliest train worth mentioning (the faster alternative, or your train), so yours is always listed
-  const startT = (earlier || heroTrain) ? (earlier || heroTrain).expected : null;
-  // On a work morning, list only trains that reach work on time while one you can walk or run to is left
-  const onTimeOnly = morning && realistic.length > 0;
-  const rows = live.filter(d => (d.cancelled || paceOf(d).level > 0) && (!startT || d.expected >= startT || (morning && d.cancelled && d.expected <= deadline))
-    && (!onTimeOnly || d.expected <= deadline)).slice(0, CONFIG.maxRows);
+  // The next trains you can still catch, in order; the same list whichever train is yours.
+  // Yours is highlighted. If it is further out than the list reaches, it takes the last place.
+  let rows = live.filter(d => d.cancelled || paceOf(d).level > 0).slice(0, CONFIG.maxRows);
+  if (heroTrain && !rows.includes(heroTrain)) rows = [...rows.slice(0, CONFIG.maxRows - 1), heroTrain];
   const lastOnTime = morning && realistic.length ? realistic[realistic.length - 1] : null;
   const keep = d => d === heroTrain || d === lastOnTime || (d.cancelled && d.expected <= deadline);
   const roomy = true;
