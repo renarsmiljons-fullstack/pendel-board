@@ -51,15 +51,15 @@ def rows(state):
 def test_features_easiest_on_time_train_and_offers_faster_one(open_board):
     s = open_board(BASE, t("06:35")).state()
     assert s["mode"] == "leave" and s["train"] == "06:48"
-    assert s["big"] == "5" and s["pace"] == "Walk"            # 06:48 - 7.5 min walk = 06:40:30
-    assert rows(s)["06:40"]["tag"] == "Jog"                  # the faster, earlier train is in the list
+    assert s["big"] == "4" and s["pace"] == "Walk"            # 06:48 - 8.5 min walk = 06:39:30
+    assert rows(s)["06:40"]["tag"] == "Run"                  # the faster, earlier train is in the list
     assert rows(s)["06:48"]["mine"]
     assert s["band"].startswith("On time for work")
 
 
 def test_go_mode_when_it_is_time_to_leave(open_board):
     s = open_board(BASE, t("06:50")).state()
-    assert s["mode"] == "go" and s["train"] == "06:55" and s["pace"] == "Jog"
+    assert s["mode"] == "go" and s["train"] == "06:55" and s["pace"] == "Run"
     assert "GO" in s["heroText"] and "5 MIN" in s["heroText"].upper()
     assert "Last on-time train: 06:55" in s["band"]
 
@@ -239,13 +239,13 @@ def wx(name: str) -> dict:
 def test_dry_weather_adds_nothing_and_header_shows_temperature(open_board):
     s = open_board(BASE, t("06:35"), weather=wx("kallhall_dry")).state()
     assert s["wx"] == "dry" and "umbrella" not in s["heroText"].lower()
-    assert s["big"] == "5" and s["wxNow"] == "4 °C · overcast"
+    assert s["big"] == "4" and s["wxNow"] == "4 °C · overcast"
 
 
 def test_rain_on_the_walk_says_take_an_umbrella(open_board):
     s = open_board(BASE, t("06:35"), weather=wx("bergen_rain")).state()
     assert s["wx"] == "rain" and "Take an umbrella" in s["heroText"]
-    assert s["big"] == "5"                                  # rain does not change the leave time
+    assert s["big"] == "4"                                  # rain does not change the leave time
 
 
 def test_drizzle_counts_as_rain(open_board):
@@ -254,22 +254,22 @@ def test_drizzle_counts_as_rain(open_board):
 
 
 def test_snow_on_the_walk_adds_two_minutes(open_board):
-    # Snow from 07:15. Walk to the 07:18 overlaps it; leave 9.5 min before instead of 7.5.
+    # Snow from 07:15. Walk to the 07:18 overlaps it; leave 10.5 min before instead of 8.5.
     s = open_board(BASE, t("06:58"), weather=wx("kiruna_snow")).state()
     assert s["train"] == "07:18" and s["wx"] == "snow"
-    assert s["big"] == "10" and "2 min added to the walk" in s["heroText"]
+    assert s["big"] == "9" and "2 min added to the walk" in s["heroText"]
 
 
 def test_snow_makes_the_pace_faster(open_board):
-    # 8 min to the 07:18: a normal walk on a dry pavement, a fast walk in snow
+    # 8 min to the 07:18: a fast walk on a dry pavement, a jog in snow
     dry = open_board(BASE, t("07:10"), weather=wx("kallhall_dry")).state()
     snow = open_board(BASE, t("07:10"), weather=wx("kiruna_snow")).state()
-    assert rows(dry)["07:18"]["tag"] == "Walk" and rows(snow)["07:18"]["tag"] == "Fast"
+    assert rows(dry)["07:18"]["tag"] == "Fast" and rows(snow)["07:18"]["tag"] == "Jog"
 
 
 def test_snow_later_does_not_affect_an_earlier_walk(open_board):
     s = open_board(BASE, t("06:35"), weather=wx("kiruna_snow")).state()
-    assert s["train"] == "06:48" and s["wx"] == "dry" and s["big"] == "5"
+    assert s["train"] == "06:48" and s["wx"] == "dry" and s["big"] == "4"
 
 
 def test_freezing_rain_is_icy_and_adds_two_minutes(open_board):
@@ -277,7 +277,7 @@ def test_freezing_rain_is_icy_and_adds_two_minutes(open_board):
     icy["minutely_15"]["weather_code"] = [66 if c == 61 else c for c in icy["minutely_15"]["weather_code"]]
     s = open_board(BASE, t("06:35"), weather=icy).state()
     assert s["wx"] == "ice" and "Freezing rain" in s["heroText"]
-    assert s["big"] == "3"                                  # 06:48 - 9.5 min = 06:38:30
+    assert s["big"] == "2"                                  # 06:48 - 10.5 min = 06:37:30
 
 
 def test_rain_amount_alone_counts_as_rain(open_board):
@@ -297,7 +297,7 @@ def test_snow_code_alone_counts_as_snow(open_board):
 
 def test_weather_service_down_changes_nothing(open_board):
     s = open_board(BASE, t("06:35"), weather=None).state()
-    assert s["wx"] == "" and s["wxNow"] == "" and s["big"] == "5"
+    assert s["wx"] == "" and s["wxNow"] == "" and s["big"] == "4"
 
 
 def test_old_forecast_is_ignored(open_board):

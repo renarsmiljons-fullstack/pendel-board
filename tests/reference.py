@@ -10,7 +10,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-WALK_MIN = 7
+WALK_MIN = 8
 BUFFER_MIN = 0.5
 DEADLINE = "07:10"
 MORNING = ("06:15", "07:15")

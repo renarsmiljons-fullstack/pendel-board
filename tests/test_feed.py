@@ -29,9 +29,14 @@ def test_empty_answer_keeps_last_real_times(open_board):
     assert board.state()["footer"].startswith("Live from SL")
 
 
-def test_morning_list_has_only_on_time_trains(open_board):
-    s = open_board(BASE, t("06:35")).state()
-    assert times(s) and all(x <= "07:10" for x in times(s))
+def test_list_is_the_next_trains_with_yours_highlighted(open_board):
+    # 07:01: the 07:03 can't be caught, the 07:10 is yours, and later trains still follow
+    s = open_board(BASE, t("07:01"), plan=PLAN).state()
+    assert times(s)[:2] == ["07:10", "07:18"] and len(times(s)) >= 3
+    assert [r["time"] for r in s["rows"] if r["mine"]] == ["07:10"]
+    # 06:35: the list starts at the next train, not at yours
+    s = open_board(BASE, t("06:35"), plan=PLAN).state()
+    assert times(s) == ["06:40", "06:48", "06:55", "07:03"]
 
 
 def test_asleep_board_fetches_nothing_and_a_tap_fetches_at_once(open_board):

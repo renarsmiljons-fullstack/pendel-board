@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from conftest import BASE_MORNING, ORIENTATIONS, RECORDED, WEATHER, load_fixture, recorded_local_time, shifted, weather_for
-from reference import DEADLINE, at, expected_view, extra_minutes, is_morning, minutes, minutes_shown, pace_level
+from reference import at, expected_view, is_morning, minutes_shown
 
 
 
@@ -90,13 +90,11 @@ def check(state: dict, response: dict, weather: dict | None, now: datetime, erro
     if any(r["cancelled"] and r["mine"] for r in state["rows"]):
         bad.append("a cancelled train is featured")
 
-    deadline = at(now, DEADLINE)
-    # While a train that reaches work on time needs at most a run, the list shows no later trains
-    if ref["morning"] and any(t.expected <= deadline and pace_level(minutes(now, t.expected), extra_minutes(weather, t.expected)) <= 5
-                              for t in ref["catchable"]):
-        late_rows = [r["time"] for r in state["rows"] if not r["cancelled"] and r["time"] > hhmm(deadline)]
-        if late_rows:
-            bad.append(f"lists trains after the cutoff while an on-time train is left: {late_rows}")
+    # The list is the next trains you can still catch, in order, whichever train is yours
+    upcoming = [hhmm(t.expected) for t in ref["catchable"]][:4]
+    listed = [r["time"] for r in state["rows"] if not r["cancelled"]]
+    if listed[:-1] != upcoming[:len(listed) - 1]:
+        bad.append(f"list {listed} is not the next trains {upcoming}")
     if ref["morning"]:
         m = re.search(r"last (\d\d:\d\d)", state["band"])
         if m and m.group(1) not in {r["time"] for r in state["rows"]}:
