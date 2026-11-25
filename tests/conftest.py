@@ -124,7 +124,7 @@ class Board:
         return self.page.evaluate(r"""() => {
           const wx = document.getElementById('h-wx'), tr = document.getElementById('h-trains');
           return { view: document.body.dataset.view, clock: document.getElementById('h-clock').innerText,
-            date: document.getElementById('h-date').innerText, wxState: wx.dataset.state || '', alert: wx.dataset.alert || '',
+            date: document.getElementById('h-date').innerText.split('\n').join(' · '), wxState: wx.dataset.state || '', alert: wx.dataset.alert || '',
             wxText: wx.innerText, verdict: (document.getElementById('h-verdict') || {}).innerText || '',
             hours: [...wx.querySelectorAll('.h-hour .t')].map(e => e.innerText),
             bars: wx.querySelectorAll('.h-bars').length,

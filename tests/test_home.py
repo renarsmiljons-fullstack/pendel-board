@@ -123,7 +123,7 @@ def test_weather_down_says_so(open_board):
 # ---------- Train bar ----------
 
 def test_train_bar_says_when_to_leave_like_the_train_screen(open_board):
-    board = open_board(BASE, t("06:35"), view="home")
+    board = open_board(BASE, t("06:35"), view="home", orientation="landscape")
     h = board.home()
     trains = open_board(BASE, t("06:35")).state()
     assert h["train"] == trains["train"] == "06:48"
