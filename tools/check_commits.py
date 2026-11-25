@@ -2,8 +2,8 @@
 
 1. A commit whose subject starts with "tidy:" changes structure only. It may not touch the tests
    or the screenshot baselines, so the unchanged tests prove nothing visible changed. It may edit
-   the health checks themselves: tests/test_hygiene.py, tests/hygiene_budget.json, tools/hygiene.py.
-2. A budget in tests/hygiene_budget.json may only go down. Raising one needs a line
+   the garden checks themselves: tests/test_garden.py, tests/garden_budget.json, tools/garden_checks.py.
+2. A budget in tests/garden_budget.json may only go down. Raising one needs a line
    "Budget raised: <why>" in the commit message, so it is a visible decision, never a quiet one.
 
 Usage: python tools/check_commits.py <first commit to check>^..<last commit>  (default HEAD^..HEAD)
@@ -14,8 +14,8 @@ import json
 import subprocess
 import sys
 
-BUDGET = "tests/hygiene_budget.json"
-CHECKS = {BUDGET, "tests/test_hygiene.py", "tools/hygiene.py"}
+BUDGET = "tests/garden_budget.json"
+CHECKS = {BUDGET, "tests/test_garden.py", "tools/garden_checks.py"}
 
 
 def git(*args: str) -> str:

@@ -2,8 +2,8 @@
 
 After GATE code commits (commits that touch web/, pi/ or tools/, apart from tidy commits) since
 the last gardening, CI fails every commit except a tidy commit that improves the code's health:
-it lowers a budget in tests/hygiene_budget.json, or adds a check to tests/test_hygiene.py or
-tools/hygiene.py. When that tidy commit passes, CI moves the garden-report tag to it and the
+it lowers a budget in tests/garden_budget.json, or adds a check to tests/test_garden.py or
+tools/garden_checks.py. When that tidy commit passes, CI moves the garden-report tag to it and the
 count starts again.
 
 Usage:
@@ -19,12 +19,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import hygiene  # noqa: E402
+import garden_checks  # noqa: E402
 
 GATE = 10
 TAG = "garden-report"
 CODE = ["web", "pi", "tools"]
-HEALTH = ["tests/hygiene_budget.json", "tests/test_hygiene.py", "tools/hygiene.py"]
+CHECK_FILES = ["tests/garden_budget.json", "tests/test_garden.py", "tools/garden_checks.py"]
 
 
 def git(*args: str) -> str:
@@ -48,26 +48,26 @@ def is_tidy(rev: str = "HEAD") -> bool:
     return git("log", "-1", "--format=%s", rev).lower().startswith("tidy:")
 
 
-def improves_health(rev: str = "HEAD") -> bool:
+def improves_the_code(rev: str = "HEAD") -> bool:
     files = git("diff-tree", "--no-commit-id", "--name-only", "-r", rev).split()
-    if any(f in files for f in HEALTH[1:]):
+    if any(f in files for f in CHECK_FILES[1:]):
         return True
-    if HEALTH[0] in files:
-        before = json.loads(git("show", f"{rev}^:{HEALTH[0]}"))
-        after = json.loads(git("show", f"{rev}:{HEALTH[0]}"))
+    if CHECK_FILES[0] in files:
+        before = json.loads(git("show", f"{rev}^:{CHECK_FILES[0]}"))
+        after = json.loads(git("show", f"{rev}:{CHECK_FILES[0]}"))
         return any(after.get(k, v) < v for k, v in before.items())
     return False
 
 
 def report(count: int) -> str:
-    now = hygiene.measure()
-    budget = json.loads(Path(hygiene.ROOT, HEALTH[0]).read_text())
+    now = garden_checks.measure()
+    budget = json.loads(Path(garden_checks.ROOT, CHECK_FILES[0]).read_text())
     longest = ", ".join(f"{name} ({lines} lines)" for name, lines in now["longest_functions"])
     return f"""Garden gate: {count} code commits since the last gardening (limit {GATE}).
 
 Before more features land, make one tidy commit that leaves the code healthier.
 Its subject starts with "tidy:", it changes no tests or screenshots, and it either
-lowers a budget in tests/hygiene_budget.json or adds a check to tests/test_hygiene.py.
+lowers a budget in tests/garden_budget.json or adds a check to tests/test_garden.py.
 
 Where to look:
   Longest functions: {longest}. Budget {budget['longest_function']} lines.
@@ -86,11 +86,11 @@ def main(cmd: str) -> int:
         print(report(count))
         return 0
     if cmd == "done":
-        return 0 if is_tidy() and improves_health() else 1
+        return 0 if is_tidy() and improves_the_code() else 1
     if count < GATE:
         print(f"Garden gate open: {count} of {GATE} code commits since the last gardening.")
         return 0
-    if is_tidy() and improves_health():
+    if is_tidy() and improves_the_code():
         print("Garden gate: this tidy commit clears the gate.")
         return 0
     print(report(count))
