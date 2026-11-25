@@ -151,7 +151,7 @@
   #home { height: 100vh; box-sizing: border-box; padding: 16px 24px 10px; flex-direction: column; gap: 12px; }
   .h-main { flex: 1 1 auto; display: grid; grid-template-columns: 1.55fr 1fr; gap: 24px; min-height: 0; }
   .h-clockcol { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; min-width: 0; }
-  .h-clock { font-size: 236px; font-weight: 800; line-height: .8; letter-spacing: -.04em; }
+  .h-clock { font-size: 236px; font-weight: 800; line-height: .8; letter-spacing: -.04em; white-space: nowrap; }
   .h-date { font-size: 26px; color: var(--soft); white-space: nowrap; }
   .h-date b { color: var(--text); font-weight: 600; }
   .h-wx { background: var(--panel); outline: 1px solid var(--edge); outline-offset: -1px; padding: 14px 14px 12px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; overflow: hidden; }
@@ -701,8 +701,20 @@ function renderTrainBar(n) {
   el.className = "h-trains" + (warn ? " warn" : "");
   setHTML(el, `${label}<span class="h-tmain">${main}${sub}</span><span class="h-tend">${pace}${chevron}</span>`);
 }
+// The clock is set at 236 px, but the Pi's fallback font (DejaVu Sans) has wider digits than Inter:
+// shrink it until it fits its column
+function fitClock() {
+  const el = document.getElementById("h-clock"), room = el.parentElement.clientWidth - 16;
+  el.style.fontSize = "";
+  const w = el.scrollWidth;
+  if (w > room) el.style.fontSize = Math.floor(236 * room / w) + "px";
+}
+if (document.fonts) document.fonts.ready.then(fitClock);   // re-fit once the real font has loaded
 function renderHome(n) {
-  document.getElementById("h-clock").textContent = hhmm(n);
+  const clock = document.getElementById("h-clock");
+  if (clock.textContent !== hhmm(n) || clock._room !== clock.parentElement.clientWidth) {
+    clock.textContent = hhmm(n); clock._room = clock.parentElement.clientWidth; fitClock();
+  }
   const sun = sunLine(n);
   document.getElementById("h-date").innerHTML = `<b>${DAYS[weekday()]} ${n.getUTCDate()} ${MONTHS[n.getUTCMonth()]}</b>${sun ? " · " + sun : ""}`;
   renderWeatherPanel(n);
