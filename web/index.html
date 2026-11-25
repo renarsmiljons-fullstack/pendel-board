@@ -52,41 +52,24 @@
     display: flex; flex-direction: column; border-left: 8px solid var(--p-gone); overflow: hidden; container-type: size; }
   .hero.solo-hero { border-left: none; }
   .label { font-size: 18px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
-  .train { font-size: 25px; color: var(--soft); display: flex; align-items: center; gap: 10px; margin-top: 6px; white-space: nowrap; min-width: 0; }
-  .train .where { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .train .trkno { color: var(--text); flex: 0 0 auto; }
-  .train b { color: var(--text); font-size: 27px; }
-  .delay-pill { font-size: 20px; font-weight: 800; padding: 2px 10px; border-radius: 0; background: var(--alert); color: #111; white-space: nowrap; }
-  .hero-note { font-size: 21px; color: var(--soft); margin: 4px 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .hero-note .warn { color: var(--alert); font-weight: 700; }
-  .longshot { font-size: 20px; color: var(--soft); background: var(--panel2); border-radius: 0; padding: 5px 10px; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .longshot b { color: var(--p6); }
   .count-wrap { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; min-height: 0; padding-top: 14px; }
   .count-label b { color: var(--text); font-size: 1.35em; letter-spacing: 0; }
   .count.go { font-size: clamp(90px, 36cqh, 180px) !important; letter-spacing: -.02em; }
   .count.go small { text-transform: none; font-size: 36px; }
   .count-label { font-size: 18px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; margin-bottom: 8px; }
-  .hero.has-note .count { font-size: clamp(90px, 27cqh, 170px); }
   .count { font-size: clamp(100px, 33cqh, 200px); font-weight: 800; line-height: .82; letter-spacing: -.035em; display: flex; align-items: baseline; }
   .count small { font-size: 44px; font-weight: 600; color: var(--muted); margin-left: 12px; letter-spacing: 0; }
   .pace-col { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; flex: 0 0 auto; }
   .pace-col .meter { flex: 1 1 auto !important; }
   .pace-cap { font-size: 21px; font-weight: 700; line-height: 1.15; display: flex; align-items: flex-start; gap: 6px; text-align: right; max-width: 130px; }
   .count-row .count { flex: 1 1 auto; min-width: 0; }
-  .glyph { font-size: 24px; line-height: 1; white-space: nowrap; }
-  .trail { display: inline-block; font-size: .6em; margin-left: -.15em; vertical-align: .1em; }
-  .pace-box { flex: 1; min-width: 0; }
-  
-  
   .count-row { display: flex; align-items: stretch; justify-content: space-between; gap: 20px; }
   .meter { display: flex; flex-direction: column-reverse; gap: 4px; width: 46px; min-height: 90px; padding-top: 6px; }
   .meter i { flex: 1; min-height: 10px; border-radius: 0; background: var(--line); }
   .lines { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; }
-  .chip { display: inline-block; font-size: 22px; font-weight: 800; padding: 1px 9px; border-radius: 0; color: #111; margin-left: 6px; vertical-align: 2px; }
   .hero.stale .count, .hero.stale .count small { color: var(--dim); }
   .hero.stale { border-left-style: dashed !important; }
   .hero.stale .pace-cap { color: var(--soft) !important; }
-  .hero.stale .glyph { opacity: .5; }
   .hero.stale .meter i.on { background: transparent !important; box-shadow: inset 0 0 0 2px var(--soft) !important; }
   .approx { font-size: .42em; font-weight: 700; color: var(--dim); margin-right: 6px; align-self: center; }
 
@@ -114,7 +97,7 @@
   .row .dest .d { color: var(--alert); font-weight: 700; font-size: .85em; margin-left: 6px; }
   .row .dest { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .row .in { font-weight: 700; text-align: right; white-space: nowrap; }
-  .row .tag { display: flex; justify-content: flex-end; } .mini { display: flex; flex-direction: column-reverse; gap: 2px; } .mini i { width: 16px; height: 4px; background: var(--line); }
+  .row .tag { display: flex; justify-content: flex-end; }
   .row.after { opacity: .7; }
   .row.gone { opacity: .4; }
   .pw { font-size: 20px; font-weight: 800; text-align: right; display: block; width: 100%; }
@@ -127,7 +110,6 @@
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .row .note .plan { color: var(--muted); font-style: italic; }
   .row .note .warn { color: var(--alert); font-weight: 700; font-size: 22px; }
-  .row .note .trk { color: var(--alert); box-shadow: inset 0 0 0 2px var(--alert); font-weight: 700; padding: 1px 7px; }
   .row .note .cx { color: var(--alert); box-shadow: inset 0 0 0 2px var(--alert); font-weight: 800; padding: 1px 7px; letter-spacing: .05em; }
   .row.cancelled .time { text-decoration: line-through; color: var(--dim); }
   .row.cancelled .dest { color: var(--soft); }
@@ -212,7 +194,6 @@
     .list.roomy .row { padding: 10px 0; font-size: 26px; }
     .lines { margin-top: 16px; }
     .count { font-size: clamp(120px, 58cqh, 260px); }
-    .hero.has-note .count { font-size: clamp(90px, 32cqh, 170px); }
   }
 
   /* ---------- Portrait (600×1024): its own proportions ---------- */
@@ -297,13 +278,13 @@ const CONFIG = {
 
 /* Pace levels, slowest to fastest. ratio = usable minutes / relaxed walk minutes. */
 const PACES = [
-  { min: 1.6,  glyph: "🚶", short: "Easy", name: "Easy walk",  hint: "Plenty of time.",             color: "var(--p1)", level: 1 },
-  { min: 1.0,  glyph: "🚶", short: "Walk", name: "Walk",       hint: "Leave on time.",              color: "var(--p2)", level: 2 },
-  { min: 0.82, glyph: "🚶", short: "Fast", name: "Fast walk", hint: "Leave now.",                  color: "var(--p3)", level: 3 },
-  { min: 0.6,  glyph: "🏃", short: "Jog", name: "Jog",        hint: "Jog the whole way.",          color: "var(--p4)", level: 4 },
-  { min: 0.42, glyph: "🏃", short: "Run", name: "Run",        hint: "Run the whole way.",          color: "var(--p5)", level: 5 },
-  { min: 0.3,  glyph: "⚡", short: "Bolt", name: "Usain Bolt", hint: "Sprint, and only if you leave right now.", color: "var(--p6)", level: 6 },
-  { min: -Infinity, glyph: "", name: "Missed",  hint: "Wait for the next one.",      color: "var(--p-gone)", level: 0 },
+  { min: 1.6,  short: "Easy", name: "Easy walk",  color: "var(--p1)", level: 1 },
+  { min: 1.0,  short: "Walk", name: "Walk",       color: "var(--p2)", level: 2 },
+  { min: 0.82, short: "Fast", name: "Fast walk", color: "var(--p3)", level: 3 },
+  { min: 0.6,  short: "Jog", name: "Jog",        color: "var(--p4)", level: 4 },
+  { min: 0.42, short: "Run", name: "Run",        color: "var(--p5)", level: 5 },
+  { min: 0.3,  short: "Bolt", name: "Usain Bolt", color: "var(--p6)", level: 6 },
+  { min: -Infinity, name: "Missed",  color: "var(--p-gone)", level: 0 },
 ];
 
 /* Short English versions of common SL disruption phrases. warn = a disruption, otherwise neutral info. */
@@ -736,17 +717,10 @@ function morningActive() {
   if (!CONFIG.deadlineDays.includes(weekday())) return false;
   const n = now(); return n >= atToday(CONFIG.morningWindow[0]) && n <= atToday(CONFIG.morningWindow[1]);
 }
-function miniBar(p, dim) {
-  let s = ""; for (let i = 1; i <= 6; i++) s += `<i style="${i <= p.level ? (dim ? "box-shadow:inset 0 0 0 2px " + p.color + ";background:transparent" : "background:" + p.color) : ""}"></i>`;
-  return `<span class="mini">${s}</span>`;
-}
-function glyphHTML(p) { return p.glyph.endsWith("💨") ? p.glyph.replace("💨", "") + `<span class="trail">💨</span>` : p.glyph; }
 function meter(p) {
   let s = ""; for (let i = 1; i <= 6; i++) s += i <= p.level ? `<i class="on" style="background:${p.color};box-shadow:inset 0 0 0 2px ${p.color}"></i>` : `<i></i>`;
   return `<div class="meter">${s}</div>`;
 }
-const chip = p => `<span class="chip" style="background:${p.color}">${p.name}</span>`;
-const VERB = { 1: "walk", 2: "walk", 3: "walk fast", 4: "jog", 5: "run", 6: "sprint" };
 const cap = t => t[0].toUpperCase() + t.slice(1);
 function ageText(ms) { const s = Math.round(ms / 1000); return s < 90 ? `${s} s` : `${Math.round(s / 60)} min`; }
 function setBand(cls, html) { const b = document.getElementById("band"); b.className = cls || ""; b.innerHTML = html || ""; }
@@ -825,10 +799,6 @@ function render() {
   let pool = morning && ontime.length ? ontime
     : catchable.filter(d => catchable.length && mins(catchable[0].expected, d.expected) <= 15);
   let next = pool.reduce((best, d) => !best || effort(d) < effort(best) ? d : best, null);
-  const longshot = null;
-  // An earlier, faster train you could also catch
-  const earlier = next ? catchable.filter(d => d.expected <= next.expected - 5 * 60000 && paceOf(d).level <= 4)
-    .reduce((b, d) => !b || paceOf(d).level < paceOf(b).level ? d : b, null) : null;
 
   // ---- Band: same words in both orientations. Landscape: one line. Portrait: two lines. ----
   let main1 = "", detail = "", cls = "neutral";
@@ -859,7 +829,6 @@ function render() {
     main.className = "";
     const left = mins(n, next.expected);
     const pace = paceOf(next);
-    const delay = Math.round(mins(next.scheduled, next.expected));
     const leaveAt = new Date(next.expected - (CONFIG.walkMinutes + extraOf(next) + CONFIG.platformBufferMinutes) * 60000);
     const leaveIn = mins(n, leaveAt);
     const lateMode = morning && next.expected > deadline;
@@ -885,8 +854,7 @@ function render() {
       ${wxLine ? `<div class="lines">${wxLine}</div>` : ""}`;
   }
 
-  // ---- List: later trains (not the hero, not the long shot, not missed ones) ----
-  const landscape = innerWidth > innerHeight;
+  // ---- List: later trains (not the hero, not missed ones) ----
   // The next trains you can still catch, in order; the same list whichever train is yours.
   // Yours is highlighted. If it is further out than the list reaches, it takes the last place.
   let rows = live.filter(d => d.cancelled || paceOf(d).level > 0).slice(0, CONFIG.maxRows);
