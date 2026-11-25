@@ -659,16 +659,11 @@ function renderTrainBar(n) {
     const slots = weatherSlots();
     const deps = withPlan(departures);
     for (const d of deps) d.wx = walkWeather(slots, d.expected);
-    const extra = d => d.wx ? d.wx.extra : 0;
-    const paceOf = d => paceFor(mins(n, d.expected), extra(d));
-    const live = deps.filter(d => mins(n, d.expected) > -0.5);
-    const catchable = live.filter(d => !d.cancelled && paceOf(d).level > 0);
-    const pool = catchable.filter(d => mins(catchable[0].expected, d.expected) <= 15);
-    const effort = d => Math.max(2, paceOf(d).level);
-    const next = pool.reduce((b, d) => !b || effort(d) < effort(b) ? d : b, null);
+    // The bar always picks within 15 min of the first catchable train, also on weekday mornings
+    const { extraOf, paceOf, live, catchable, next } = pickTrains(n, deps);
     if (!next) main = `<span class="h-thero small">No trains in the next 2 hours</span>`;
     else {
-      const leaveIn = mins(n, next.expected) - (CONFIG.walkMinutes + extra(next) + CONFIG.platformBufferMinutes);
+      const leaveIn = mins(n, next.expected) - (CONFIG.walkMinutes + extraOf(next) + CONFIG.platformBufferMinutes);
       const p = leaveIn >= 1 ? PACES.find(x => x.level === 2) : paceOf(next);
       const then = catchable.find(d => d.expected > next.expected);
       main = `<span class="h-tline"><span class="h-thero num">${leaveIn >= 1 ? `Leave in ${minutesLabel(leaveIn)} min` : "Go now"}</span>
@@ -714,6 +709,21 @@ function renderHome(n) {
 
 /* ---------- Logic ---------- */
 const paceFor = (left, extra = 0) => PACES.find(p => (left - CONFIG.platformBufferMinutes) / (CONFIG.walkMinutes + extra) >= p.min);
+/* Which train is yours, at time n, from departures that already carry their walk weather (d.wx).
+   Yours is the easiest one that still works: among trains that leave by onTimeBy if any do (weekday
+   mornings), otherwise within 15 min of the first catchable one. Easy walk and Walk count as equally
+   relaxed, so the earliest relaxed train wins. Reads no state, so both screens get the same answer. */
+function pickTrains(n, deps, onTimeBy = null) {
+  const extraOf = d => d.wx ? d.wx.extra : 0;
+  const paceOf = d => paceFor(mins(n, d.expected), extraOf(d));
+  const live = deps.filter(d => mins(n, d.expected) > -0.5);
+  const catchable = live.filter(d => !d.cancelled && paceOf(d).level > 0);
+  const ontime = onTimeBy ? catchable.filter(d => d.expected <= onTimeBy) : [];
+  const pool = ontime.length ? ontime : catchable.filter(d => mins(catchable[0].expected, d.expected) <= 15);
+  const effort = d => Math.max(2, paceOf(d).level);
+  const next = pool.reduce((best, d) => !best || effort(d) < effort(best) ? d : best, null);
+  return { extraOf, paceOf, live, catchable, next };
+}
 let secFrac = 0;   // seconds past the displayed clock minute, as a fraction of a minute
 const minutesLabel = left => { const v = left + secFrac; return v < 1 ? "<1" : String(Math.floor(v)); };
 function morningActive() {
@@ -784,24 +794,13 @@ function render() {
   const slots = weatherSlots();
   const deps = withPlan(departures);
   for (const d of deps) d.wx = walkWeather(slots, d.expected);
-  const extraOf = d => d.wx ? d.wx.extra : 0;
-  const paceOf = d => paceFor(mins(n, d.expected), extraOf(d));
-  const live = deps.filter(d => mins(n, d.expected) > -0.5);
-  const catchable = live.filter(d => !d.cancelled && paceOf(d).level > 0);
+  const { extraOf, paceOf, live, catchable, next } = pickTrains(n, deps, morning ? deadline : null);
   const ontime = catchable.filter(d => d.expected <= deadline);
   const realistic = ontime.filter(d => paceOf(d).level <= 5);
   const cancelledBefore = live.filter(d => d.cancelled && d.expected <= deadline);
   const justMissed = deps.filter(d => !d.cancelled && d.expected <= deadline && mins(n, d.expected) > -5 && paceOf(d).level === 0);
   const portraitMode = innerHeight > innerWidth;
   const winStart = atToday(CONFIG.morningWindow[0]);
-
-  // Featured train: the easiest one that still works.
-  // Weekday mornings: among trains that reach work on time. Otherwise (or when late): within 15 min of the first one.
-  // Easy walk and Walk count as equally relaxed, so the earliest relaxed train wins.
-  const effort = d => Math.max(2, paceOf(d).level);
-  let pool = morning && ontime.length ? ontime
-    : catchable.filter(d => catchable.length && mins(catchable[0].expected, d.expected) <= 15);
-  let next = pool.reduce((best, d) => !best || effort(d) < effort(best) ? d : best, null);
 
   // ---- Band: same words in both orientations. Landscape: one line. Portrait: two lines. ----
   let main1 = "", detail = "", cls = "neutral";
