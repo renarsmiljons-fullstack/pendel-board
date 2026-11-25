@@ -101,9 +101,18 @@ The suite opens `web/index.html` in headless Chromium, serves it recorded SL res
 | `tests/test_feed.py` | Odd answers from SL: an empty answer while trains are still due keeps the last real times and says so in the footer, and timetable trains fill gaps in the live feed. Also checks that the morning list shows only on-time trains, and that an asleep board sends no requests until a tap wakes it. |
 | `tests/test_server.py` | The Pi's web server: it serves the board, switches the HDMI signal when the page asks, turns it back on after a tap, and turns it on if the page goes quiet. |
 | `tests/test_scenarios.py` | One test per situation: every departure state in SL's spec, delays, cancellations, replacement buses, skipped stops, station notices, feed errors, old data, sleep, weekends, and each kind of weather. |
+| `tests/test_fit.py` | No text sticks out of its box or the screen, in the Pi's font, with the longest dates, at 1067×600 and 1024×600. |
+| `tests/test_hygiene.py` | Code health: no stray colours, dead code, TODO notes or copied blocks, and budgets that only go down. See [AGENTS.md](AGENTS.md). |
 | `tests/test_screens.py` | Screenshots of 8 key states of both screens, at the panel's 1067×600 and in portrait, compared with the pictures in `tests/screenshots/`. |
 
 After an intended change to how the board looks, save new pictures with `UPDATE_SCREENSHOTS=1 python -m pytest tests/test_screens.py` and commit them. A failing picture is saved, with a map of the differing pixels, in `tests/screenshots/failed/`.
+
+## Keeping the code healthy
+
+CI enforces the habits in [AGENTS.md](AGENTS.md). Tidy commits change structure only. Health budgets
+in `tests/hygiene_budget.json` only go down. After every 10 code commits, the garden gate blocks
+new work until a tidy commit improves the code. Run `python tools/hygiene.py` for the numbers, and
+`python tools/garden.py report` for what to tidy next.
 
 ## Fixtures
 
