@@ -1,3 +1,4 @@
 web/version.txt
 __pycache__/
 .pytest_cache/
+tests/screenshots/failed/
