@@ -117,6 +117,22 @@ class Board:
         """How many requests the page has sent to SL and to Open-Meteo."""
         return dict(self._calls)
 
+    def home(self) -> dict:
+        """What the home screen shows."""
+        return self.page.evaluate(r"""() => {
+          const wx = document.getElementById('h-wx'), tr = document.getElementById('h-trains');
+          return { view: document.body.dataset.view, clock: document.getElementById('h-clock').innerText,
+            date: document.getElementById('h-date').innerText, wxState: wx.dataset.state || '', alert: wx.dataset.alert || '',
+            wxText: wx.innerText, verdict: (document.getElementById('h-verdict') || {}).innerText || '',
+            hours: [...wx.querySelectorAll('.h-hour .t')].map(e => e.innerText),
+            bars: wx.querySelectorAll('.h-bars').length,
+            trains: tr.innerText.replace(/\s+/g, ' ').trim(), train: tr.dataset.train || '', trainWarn: tr.classList.contains('warn'),
+            foot: document.getElementById('h-foot').innerText };
+        }""")
+
+    def press(self, element_id: str):
+        self.page.click(f"#{element_id}")
+
     def tap(self):
         self.page.mouse.click(50, 50)
 
@@ -126,10 +142,11 @@ def open_board(browser):
     pages = []
 
     def _open(response=None, when: datetime | None = None, orientation="portrait", mode="ok", sleep=False, extra="",
-              weather: dict | None = None, plan: dict | None = None):
+              weather: dict | None = None, plan: dict | None = None, view: str | None = "trains"):
         """weather: an Open-Meteo response, or None for a weather service that is down.
         plan: journeys from real journey planner answers, or None for a planner that is down. Like the
-        planner, each answer holds the first 3 journeys that leave at or after the asked time."""
+        planner, each answer holds the first 3 journeys that leave at or after the asked time.
+        view: "trains" or "home" keeps that screen; None lets the board choose, as on the Pi."""
         page = browser.new_page(viewport=ORIENTATIONS[orientation])
         errors: list[str] = []
         page.on("pageerror", lambda e: errors.append(str(e)))
@@ -176,6 +193,8 @@ def open_board(browser):
         query = f"?at={iso(when)}" if when else "?"
         if not sleep:
             query += "&nosleep"
+        if view:
+            query += f"&view={view}"
         page.goto(f"{BOARD}{query}{extra}")
         page.wait_for_function("() => document.getElementById('hero').dataset.mode !== undefined", timeout=5000)
         # An asleep board fetches nothing, so there is nothing to wait for

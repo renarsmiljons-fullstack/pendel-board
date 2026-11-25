@@ -40,7 +40,7 @@ def test_list_is_the_next_trains_with_yours_highlighted(open_board):
 
 
 def test_asleep_board_fetches_nothing_and_a_tap_fetches_at_once(open_board):
-    board = open_board(BASE, t("12:00"), sleep=True)
+    board = open_board(BASE, t("23:00"), sleep=True)
     board.page.wait_for_timeout(500)
     assert board.state()["asleep"] and board.calls == {"sl": 0, "weather": 0, "plan": 0}
     board.tap()

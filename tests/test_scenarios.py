@@ -312,8 +312,20 @@ def test_awake_on_weekday_mornings(open_board):
     assert not open_board(BASE, t("06:35"), sleep=True).state()["asleep"]
 
 
-def test_asleep_outside_the_morning_and_a_tap_wakes_it(open_board):
-    board = open_board(BASE, t("12:00"), sleep=True)
+def test_awake_in_the_day_and_asleep_at_night(open_board):
+    assert not open_board(BASE, t("12:00"), sleep=True).state()["asleep"]
+    assert not open_board(BASE, t("21:59"), sleep=True).state()["asleep"]
+    assert open_board(BASE, t("22:00"), sleep=True).state()["asleep"]
+    assert open_board(BASE, t("06:10"), sleep=True).state()["asleep"]
+
+
+def test_weekends_wake_at_seven(open_board):
+    assert open_board(BASE, t("06:30"), sleep=True, extra="&day=6").state()["asleep"]
+    assert not open_board(BASE, t("07:00"), sleep=True, extra="&day=6").state()["asleep"]
+
+
+def test_asleep_at_night_and_a_tap_wakes_it(open_board):
+    board = open_board(BASE, t("23:00"), sleep=True)
     assert board.state()["asleep"]
     board.tap()
     assert not board.state()["asleep"]
