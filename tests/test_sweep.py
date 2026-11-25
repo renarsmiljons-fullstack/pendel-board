@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from conftest import BASE_MORNING, ORIENTATIONS, RECORDED, WEATHER, load_fixture, recorded_local_time, shifted, weather_for
+from conftest import BASE_MORNING, RECORDED, WEATHER, load_fixture, recorded_local_time, shifted, weather_for
 from reference import at, expected_view, is_morning, minutes_shown
 
 
@@ -108,7 +108,8 @@ def check(state: dict, response: dict, weather: dict | None, now: datetime, erro
     return bad
 
 
-@pytest.mark.parametrize("orientation", list(ORIENTATIONS))
+# Portrait and the 1024×600 landscape only: one more size would add a third to the run time
+@pytest.mark.parametrize("orientation", ["portrait", "landscape"])
 @pytest.mark.parametrize("case_id,response,weather,start,span", CASES, ids=[c[0] for c in CASES])
 def test_sweep(open_board, case_id, response, weather, start, span, orientation):
     board = open_board(response, start, orientation, weather=weather)

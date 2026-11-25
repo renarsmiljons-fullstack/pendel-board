@@ -36,7 +36,9 @@ def weather_for(path: str) -> str | None:
     return same_day[-1] if same_day else None
 
 
-ORIENTATIONS = {"portrait": {"width": 600, "height": 1024}, "landscape": {"width": 1024, "height": 600}}
+# "panel" is the Pi's 7-inch screen (1067×600)
+ORIENTATIONS = {"portrait": {"width": 600, "height": 1024}, "landscape": {"width": 1024, "height": 600},
+                "panel": {"width": 1067, "height": 600}}
 
 # Reads everything the tests check from the page in one call
 STATE_JS = """() => {
