@@ -33,9 +33,18 @@ journalctl --user -u pendel-listen -n 20      # recent updates
 
 The web server listens on `127.0.0.1:8080` only, so no other device on your network can reach it. The Pi makes outgoing requests to SL, Open-Meteo, and GitHub, and accepts no incoming connections.
 
+## Two screens: home and trains
+
+The board has two screens:
+
+- **Trains**: when to leave, how fast to walk, and the next departures. It opens on weekday mornings during `morningWindow` (06:15–07:15).
+- **Home**: a large clock, the date with the next sunrise or sunset, the weather now, what to wear ("Warm coat, umbrella"), the next 4 hours with 15-minute rain bars, and a train bar that says when to leave for the next train. It opens at all other times.
+
+Tap the train bar on the home screen to open the train screen, and **Home** in the train screen's header to go back. Outside the commute, the train screen goes back to the home screen by itself after 5 minutes (`homeReturnMinutes`). A screen chosen during the commute stays until the commute window starts or ends.
+
 ## The screen at night
 
-Outside the awake hours (weekdays 06:15–07:15), the board turns the HDMI signal off. Without a signal, the 7-inch panel turns its backlight off too, so the screen is fully dark instead of glowing black.
+The screen is on from 07:00 (06:15 on weekdays) until 22:00. Outside those hours the board turns the HDMI signal off. Without a signal, the 7-inch panel turns its backlight off too, so the screen is fully dark instead of glowing black.
 
 Tap the screen to wake it for 5 minutes. With the signal off, the tap may not reach the browser, so the web server (`pi/server.py`) reads the touchscreen itself. It turns the signal back on, and the page wakes when it next asks the server, within 2 seconds.
 
@@ -53,7 +62,7 @@ A timetable train has no live data: if SL cancels it before it reaches the live 
 
 ## Weather
 
-The board asks Open-Meteo for the Kallhäll forecast every 10 minutes, in 15-minute steps. For each departure it looks at the forecast for the walk to it: the 15-minute steps that overlap the 10.5 minutes before the train leaves.
+The board asks Open-Meteo for the Kallhäll forecast every 10 minutes, in 15-minute steps. It also asks for the feels-like temperature and today's sunrise and sunset for the home screen. For each departure it looks at the forecast for the walk to it: the 15-minute steps that overlap the 10.5 minutes before the train leaves.
 
 | Weather on the walk | What the board does |
 | --- | --- |
@@ -88,6 +97,7 @@ The suite opens `web/index.html` in headless Chromium, serves it recorded SL res
 | File | What it checks |
 | --- | --- |
 | `tests/test_sweep.py` | Steps through each recorded response minute by minute, on the minute and at 31 seconds past, in portrait and landscape. At each step it compares the board with `tests/reference.py`, a separate implementation of the rules. |
+| `tests/test_home.py` | The home screen: which screen opens when, the 5-minute return, clock, date and sunrise, the wear advice, rain, snow and ice alerts, old and missing weather, and the train bar. |
 | `tests/test_feed.py` | Odd answers from SL: an empty answer while trains are still due keeps the last real times and says so in the footer, and timetable trains fill gaps in the live feed. Also checks that the morning list shows only on-time trains, and that an asleep board sends no requests until a tap wakes it. |
 | `tests/test_server.py` | The Pi's web server: it serves the board, switches the HDMI signal when the page asks, turns it back on after a tap, and turns it on if the page goes quiet. |
 | `tests/test_scenarios.py` | One test per situation: every departure state in SL's spec, delays, cancellations, replacement buses, skipped stops, station notices, feed errors, old data, sleep, weekends, and each kind of weather. |
@@ -123,7 +133,8 @@ Settings are the `CONFIG` object at the top of the script in `web/index.html`.
 | `deadline` | `"07:10"` | Last departure that reaches work on time. |
 | `deadlineDays` | `[1, 2, 3, 4, 5]` | Days the deadline applies, Monday to Friday. |
 | `morningWindow` | `["06:15", "07:15"]` | When the work status band is active. |
-| `awake` | weekdays `06:15`–`07:15` | When the screen shows the board. At other times the screen is off until tapped. |
+| `awake` | `07:00`–`22:00` | When the screen is on. On `deadlineDays` it starts at the start of `morningWindow` instead. At other times the screen is off until tapped. |
+| `homeReturnMinutes` | `5` | Outside the commute, how long the train screen stays open before the home screen returns. |
 | `wakeMinutes` | `5` | How long a tap keeps the screen on. |
 | `refreshSeconds` | `30` | How often the board asks SL for new times. |
 | `staleSeconds` | `90` | Data older than this is marked as possibly wrong. |
@@ -142,4 +153,5 @@ Add these to the page address to check a situation by eye, for example `index.ht
 | `now=HH:MM` | Starts the clock at this time today. The clock keeps running. |
 | `day=N` | Treats today as weekday `N`, where `0` is Sunday. |
 | `nosleep` | Keeps the screen awake at all hours. |
+| `view=home` or `view=trains` | Keeps that screen open. |
 | `stale=N` | Pretends the last good data is `N` minutes old and SL is failing. |
