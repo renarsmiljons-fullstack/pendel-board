@@ -2,6 +2,7 @@ name: CI
 
 # Runs every test. On main, a green run moves the `stable` branch,
 # which is the only branch the Raspberry Pi pulls.
+# The health job runs the commit rules and the garden gate; see AGENTS.md.
 
 on:
   push:
@@ -10,6 +11,28 @@ on:
   workflow_dispatch:
 
 jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Commit rules (tidy commits leave tests alone, budgets only go down)
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            python tools/check_commits.py "$BEFORE..HEAD"
+          else
+            python tools/check_commits.py HEAD^..HEAD
+          fi
+      - name: Garden gate
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: python tools/garden.py check
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -25,7 +48,7 @@ jobs:
         run: python -m pytest -q
 
   promote:
-    needs: test
+    needs: [health, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -42,4 +65,15 @@ jobs:
             echo "stable already has this commit or a newer one"
           else
             git push origin HEAD:refs/heads/stable
+          fi
+      # A green tidy commit that improved the code's health starts the garden count again.
+      - name: Mark the gardening done
+        run: |
+          git fetch --tags --force origin
+          if python tools/garden.py done; then
+            if ! git rev-parse -q --verify refs/tags/garden-report >/dev/null \
+               || git merge-base --is-ancestor garden-report HEAD; then
+              git tag -f garden-report HEAD
+              git push -f origin refs/tags/garden-report
+            fi
           fi
