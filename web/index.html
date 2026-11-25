@@ -28,7 +28,7 @@
   header h1 { font-size: 26px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
   header h1 .arrow { color: var(--muted); font-weight: 400; margin: 0 6px; }
   #clock { font-size: 38px; font-weight: 700; }
-  #wx-now { margin-right: auto; margin-left: 8px; padding-left: 20px; border-left: 1px solid var(--edge); font-size: 26px; font-weight: 500; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  #wx-now { margin-left: 8px; padding-left: 20px; border-left: 1px solid var(--edge); font-size: 26px; font-weight: 500; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   #wx-now:empty { display: none; }
 
   /* Band: always present, so the layout never jumps */
@@ -143,6 +143,67 @@
   .wx { color: #0b1a2e; background: var(--wx); font-weight: 800; padding: 1px 8px; letter-spacing: .04em; margin-right: 8px; }
   .wx-line { font-size: 23px; color: var(--text); }
   #sleep { position: fixed; inset: 0; background: #000; z-index: 10; display: none; }
+
+  /* ---------- Home screen (outside the commute) ---------- */
+  #home { display: none; }
+  body.view-home .app { display: none; }
+  body.view-home #home { display: flex; }
+  #home { height: 100vh; box-sizing: border-box; padding: 16px 24px 10px; flex-direction: column; gap: 12px; }
+  .h-main { flex: 1 1 auto; display: grid; grid-template-columns: 1.55fr 1fr; gap: 24px; min-height: 0; }
+  .h-clockcol { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; min-width: 0; }
+  .h-clock { font-size: 236px; font-weight: 800; line-height: .8; letter-spacing: -.04em; }
+  .h-date { font-size: 26px; color: var(--soft); white-space: nowrap; }
+  .h-date b { color: var(--text); font-weight: 600; }
+  .h-wx { background: var(--panel); outline: 1px solid var(--edge); outline-offset: -1px; padding: 14px 14px 12px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; overflow: hidden; }
+  .h-wx.stale { box-shadow: inset 6px 0 0 var(--alert); }
+  .h-wx.stale .h-dim { filter: grayscale(1); opacity: .85; }
+  .h-now { display: flex; align-items: center; gap: 12px; }
+  .h-temp { font-size: 58px; font-weight: 800; line-height: 1; white-space: nowrap; }
+  .h-wx.stale .h-temp, .h-wx.stale .h-verdict { color: var(--soft); }
+  .h-desc { font-size: 20px; color: var(--soft); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-feels { font-size: 20px; font-weight: 600; line-height: 1.25; white-space: nowrap; }
+  .h-asof { font-size: 20px; font-weight: 700; color: var(--alert); margin-top: -6px; }
+  .h-verdict { font-size: 28px; font-weight: 800; line-height: 32px; }
+  .h-hours { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); text-align: center; border-top: 1px solid var(--edge); }
+  .h-hour { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 6px; }
+  .h-hour + .h-hour { border-left: 1px solid var(--line); }
+  .h-hour .t { font-size: 18px; color: var(--soft); }
+  .h-hour .i { height: 38px; display: flex; align-items: center; }
+  .h-hour .c { font-size: 30px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+  .h-bars { align-self: stretch; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; align-items: end; height: 44px; padding: 0 4px; border-bottom: 1px solid #3a3f4a; margin-top: 4px; }
+  .h-alerts { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+  .h-alert { font-size: 22px; line-height: 1.35; }
+  .h-alert.plain { font-size: 24px; color: var(--soft); }
+  .h-chip { font-weight: 800; font-size: 20px; padding: 1px 8px; letter-spacing: .04em; margin-right: 10px; color: #0b1a2e; }
+  .h-chip.rain { background: var(--wx); } .h-chip.snow { background: var(--text); } .h-chip.ice { background: #9fe8f0; }
+  .h-wx.stale .h-chip { background: transparent; color: var(--soft); box-shadow: inset 0 0 0 2px var(--muted); }
+  .h-off { margin: auto; text-align: center; font-size: 24px; color: var(--soft); }
+  .h-trains { display: flex; align-items: center; gap: 16px; min-height: 80px; box-sizing: border-box; padding: 0 22px; background: var(--panel2); outline: 1px solid var(--edge); outline-offset: -1px; white-space: nowrap; color: var(--text); font: inherit; border: 0; text-align: left; cursor: none; }
+  .h-trains.warn { box-shadow: inset 6px 0 0 var(--alert); }
+  .h-tlabel { flex: 0 0 auto; display: flex; flex-direction: column; line-height: 1.15; }
+  .h-tlabel b { font-size: 22px; } .h-tlabel span { color: var(--soft); font-size: 18px; }
+  .h-tmain { display: flex; flex-direction: column; justify-content: center; min-width: 0; margin-left: 10px; overflow: hidden; }
+  .h-tline { display: flex; gap: 14px; align-items: baseline; }
+  .h-thero { font-weight: 800; font-size: 40px; letter-spacing: -.01em; line-height: 1.05; }
+  .h-thero.small { font-size: 32px; }
+  .h-tfor { color: var(--soft); font-size: 24px; }
+  .h-tdep { font-weight: 700; font-size: 28px; }
+  .h-tthen { color: var(--muted); font-size: 22px; }
+  .h-tsub { font-size: 18px; font-weight: 600; color: var(--alert); margin-top: 2px; }
+  .h-bus { color: #111; background: var(--alert); font-weight: 800; font-size: 19px; padding: 1px 7px; align-self: center; }
+  .h-tend { margin-left: auto; display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
+  .h-tpace { font-size: 24px; font-weight: 800; }
+  .h-foot { font-size: 17px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-foot.bad { color: var(--alert); }
+  .h-foot .ld { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--p2); margin-right: 8px; }
+  .h-foot.bad .ld { background: var(--alert); }
+  #home-btn { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; background: var(--panel2); outline: 1px solid var(--edge); outline-offset: -1px; border: 0; color: var(--text); font: inherit; font-size: 20px; font-weight: 600; cursor: none; flex: 0 0 auto; }
+  #day { font-size: 26px; font-weight: 500; color: var(--soft); white-space: nowrap; padding-left: 20px; margin-left: 8px; border-left: 1px solid var(--edge); margin-right: auto; }
+  @media (orientation: portrait) {
+    .h-main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .h-clock { font-size: 200px; }
+    #day { display: none; }
+  }
   body.asleep #sleep { display: block; }
 
   /* ---------- Landscape: keep the card calm ---------- */
@@ -183,6 +244,8 @@
   <header>
     <h1>Kallhäll<span class="arrow">→</span>Odenplan</h1>
     <span id="wx-now"></span>
+    <span id="day"></span>
+    <button id="home-btn" type="button" aria-label="Home screen"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path></svg>Home</button>
     <div id="clock" class="num">--:--</div>
   </header>
   <div id="band"></div>
@@ -194,6 +257,18 @@
     <span id="status"></span>
     <span id="foot-right"></span>
   </footer>
+</div>
+
+<div id="home">
+  <div class="h-main">
+    <section class="h-clockcol">
+      <div id="h-clock" class="h-clock num">--:--</div>
+      <div id="h-date" class="h-date"></div>
+    </section>
+    <section id="h-wx" class="h-wx"></section>
+  </div>
+  <button id="h-trains" class="h-trains" type="button"></button>
+  <div id="h-foot" class="h-foot"></div>
 </div>
 
 <script>
@@ -208,7 +283,8 @@ const CONFIG = {
   morningWindow: ["06:15", "07:15"],   // wake-up 06:20, out the door by about 07:00
   refreshSeconds: 30,
   staleSeconds: 90,            // data older than this is not trusted
-  awake: { days: [1, 2, 3, 4, 5], from: "06:15", to: "07:15" },  // screen on; otherwise black until tapped
+  awake: { from: "07:00", to: "22:00" },  // screen on; from the start of morningWindow on deadlineDays. Otherwise off until tapped
+  homeReturnMinutes: 5,        // outside the commute, the train screen goes back to the home screen after this long
   wakeMinutes: 5,              // how long a tap keeps the screen on
   maxRows: 4,                  // departures shown, including yours; rows that don't fit are dropped
   weather: {
@@ -262,6 +338,7 @@ const fakeDay = params.get("day");      // testing: ?day=1 (Monday)
 const fakeStale = params.get("stale");  // testing: ?stale=4 (data 4 min old, feed failing)
 const fakeAt = params.get("at");        // testing: ?at=2026-11-16T06:52:30 (Stockholm time, frozen)
 const noSleep = params.has("nosleep");  // testing: never show the sleep screen
+const fixedView = params.get("view");   // testing: ?view=trains or ?view=home keeps that screen
 let frozenAt = null;
 let fakeOffsetMs = 0;
 function stockholmParts(d) {
@@ -399,13 +476,15 @@ const isIceCode = c => [56, 57, 66, 67].includes(c);
 const isSnowCode = c => (c >= 71 && c <= 77) || c === 85 || c === 86;
 const isRainCode = c => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95;
 let weather = null;      // minutely_15 block of the last good response
-let weatherAt = null;    // real time it arrived
+let weatherAt = null;     // real time it arrived
+let weatherDaily = null;  // sunrise and sunset per day
 async function loadWeather() {
   const w = CONFIG.weather;
   try {
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${w.lat}&longitude=${w.lon}&minutely_15=precipitation,snowfall,temperature_2m,weather_code&timezone=Europe%2FStockholm&forecast_days=2&models=metno_seamless`, { cache: "no-store" });
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${w.lat}&longitude=${w.lon}&minutely_15=precipitation,snowfall,temperature_2m,apparent_temperature,weather_code&daily=sunrise,sunset&timezone=Europe%2FStockholm&forecast_days=2&models=metno_seamless`, { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    weather = (await res.json()).minutely_15 || null; weatherAt = Date.now();
+    const data = await res.json();
+    weather = data.minutely_15 || null; weatherDaily = data.daily || null; weatherAt = Date.now();
   } catch (e) { /* no weather: the board works without it */ }
   document.body.dataset.weather = weather ? "ok" : "none";   // read by the tests
   render();
@@ -413,7 +492,7 @@ async function loadWeather() {
 function weatherSlots() {
   if (!weather || !weather.time || Date.now() - weatherAt > CONFIG.weather.maxAgeMinutes * 60000) return [];
   return weather.time.map((t, i) => ({ start: parseLocal(t), code: weather.weather_code?.[i], rain: weather.precipitation?.[i] || 0,
-    snow: weather.snowfall?.[i] || 0, temp: weather.temperature_2m?.[i] }));
+    snow: weather.snowfall?.[i] || 0, temp: weather.temperature_2m?.[i], feels: weather.apparent_temperature?.[i] }));
 }
 /* Weather on the walk to a departure: every 15-minute slot that overlaps the walk before it */
 function walkWeather(slots, dep) {
@@ -436,9 +515,11 @@ function isAwake() {
   if (noSleep) return true;
   if (Date.now() < wakeUntil) return true;
   const n = now(), a = CONFIG.awake;
-  return a.days.includes(weekday()) && n >= atToday(a.from) && n <= atToday(a.to);
+  const from = CONFIG.deadlineDays.includes(weekday()) ? CONFIG.morningWindow[0] : a.from;
+  return n >= atToday(from) && n < atToday(a.to);
 }
-document.addEventListener("pointerdown", () => { wakeUntil = Date.now() + CONFIG.wakeMinutes * 60000; render(); });
+// Only re-draw when the tap wakes the screen: re-drawing under a finger would swallow the tap on a button
+document.addEventListener("pointerdown", () => { const was = isAwake(); wakeUntil = Date.now() + CONFIG.wakeMinutes * 60000; if (!was) render(); });
 
 /* ---------- Updates: reload when the Pi has pulled a new version ---------- */
 let version = null;
@@ -459,6 +540,180 @@ async function syncScreen() {
     if (lastTap !== null && r.tap > lastTap) { wakeUntil = Date.now() + CONFIG.wakeMinutes * 60000; render(); }
     lastTap = r.tap;
   } catch (e) { /* no screen control (for example when opened directly): ignore */ }
+}
+
+/* ---------- Which screen: trains during the commute, home otherwise ---------- */
+// A tap can switch screens. Outside the commute the train screen goes back home after a few minutes;
+// a choice made during the commute lasts until the commute window starts or ends.
+let chosen = null;   // { view, at, commute }
+function commuteNow() { return morningActive(); }
+function currentView() {
+  if (fixedView === "home" || fixedView === "trains") return fixedView;
+  const commute = commuteNow();
+  if (chosen && (chosen.commute !== commute
+      || (!commute && chosen.view === "trains" && Date.now() - chosen.at > CONFIG.homeReturnMinutes * 60000))) chosen = null;
+  return chosen ? chosen.view : commute ? "trains" : "home";
+}
+function choose(view) { chosen = { view, at: Date.now(), commute: commuteNow() }; render(); }
+document.getElementById("home-btn").addEventListener("click", () => choose("home"));
+document.getElementById("h-trains").addEventListener("click", () => choose("trains"));
+
+/* ---------- Home screen ---------- */
+// Replace an element's content only when it changed: the screen redraws every second, and swapping
+// a button's content under a finger would swallow the tap
+function setHTML(el, html) { if (el._html !== html) { el._html = html; el.innerHTML = html; } }
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const ICON = {
+  clear_day: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>',
+  clear_night: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path>',
+  partly: '<path d="M8 6.5a3.5 3.5 0 0 1 6.3 1"></path><path d="M8 3v1M3.8 5.2l.7.7M2.5 9.5h1"></path><path d="M8 19h9a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 8 12.4 3.3 3.3 0 0 0 8 19z"></path>',
+  overcast: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 11 3.5 3.5 0 0 0 7 18z"></path>',
+  fog: '<path d="M4 9h16M3 13h18M5 17h14"></path>',
+  rain: '<path d="M7 15h9a3.2 3.2 0 0 0 .5-6.36A4.8 4.8 0 0 0 7.1 9.4 2.8 2.8 0 0 0 7 15z"></path><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"></path>',
+  snow: '<path d="M7 15h9a3.2 3.2 0 0 0 .5-6.36A4.8 4.8 0 0 0 7.1 9.4 2.8 2.8 0 0 0 7 15z"></path><path d="M8 19h.01M12 19h.01M16 19h.01M10 22h.01M14 22h.01" stroke-width="2.6"></path>',
+  ice: '<path d="M7 15h9a3.2 3.2 0 0 0 .5-6.36A4.8 4.8 0 0 0 7.1 9.4 2.8 2.8 0 0 0 7 15z"></path><path d="M8 18l-1 3M16 18l-1 3"></path><path d="M12 19h.01" stroke-width="2.6"></path>',
+};
+const TINT = { clear_day: "var(--p3)", clear_night: "var(--soft)", partly: "var(--soft)", overcast: "var(--soft)", fog: "var(--soft)", rain: "var(--wx)", snow: "var(--text)", ice: "#9fe8f0" };
+const BARCOL = { rain: "var(--wx)", snow: "var(--text)", ice: "#9fe8f0" };
+const icon = (kind, size) => `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${TINT[kind]}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICON[kind]}</svg>`;
+const wetKind = s => isIceCode(s.code) ? "ice" : isSnowCode(s.code) || s.snow > 0 ? "snow" : isRainCode(s.code) || s.rain >= 0.1 ? "rain" : null;
+const KIND_ORDER = ["rain", "snow", "ice"];
+function sunTimes() {
+  if (!weatherDaily || !weatherDaily.sunrise) return [];
+  return weatherDaily.sunrise.map((r, i) => ({ rise: parseLocal(r), set: weatherDaily.sunset && weatherDaily.sunset[i] ? parseLocal(weatherDaily.sunset[i]) : null }));
+}
+function isDark(t) {
+  const day = sunTimes().find(d => d.rise.getUTCDate() === t.getUTCDate());
+  if (!day || !day.set) { const h = t.getUTCHours(); return h < 8 || h >= 16; }
+  return t < day.rise || t >= day.set;
+}
+function skyKind(s) {
+  const wet = wetKind(s); if (wet) return wet;
+  const c = s.code;
+  if (c === 45 || c === 48) return "fog";
+  if (c === 3) return "overcast";
+  if (c === 2) return "partly";
+  return isDark(s.start) ? "clear_night" : "clear_day";
+}
+function sunLine(n) {
+  const days = sunTimes();
+  for (const d of days) {
+    if (n < d.rise) return d.rise.getUTCDate() === n.getUTCDate() ? `Sunrise ${hhmm(d.rise)}` : `Sunrise ${hhmm(d.rise)} tomorrow`;
+    if (d.set && n < d.set) return `Sunset ${hhmm(d.set)}`;
+  }
+  return "";
+}
+function verdict(feels, kinds) {
+  const coat = feels >= 18 ? "No jacket needed" : feels >= 12 ? "Light jacket" : feels >= 5 ? "Jacket" : feels >= -5 ? "Warm coat" : "Winter coat, gloves";
+  return coat + (kinds.has("rain") ? ", umbrella" : "") + (kinds.has("ice") ? ", ice grips" : "");
+}
+const intensity = mm => mm < 0.25 ? "light" : mm < 1 ? "moderate" : "heavy";
+function weatherAlert(quarters) {
+  // quarters: the next 15-minute slots, from the current one. Describes the first wet spell.
+  const first = quarters.findIndex(q => wetKind(q));
+  if (first < 0) return null;
+  let end = first; while (end + 1 < quarters.length && wetKind(quarters[end + 1])) end++;
+  const spell = quarters.slice(first, end + 1);
+  const kind = KIND_ORDER.reduce((k, x) => spell.some(q => wetKind(q) === x) ? x : k, "rain");
+  const until = end + 1 < quarters.length ? hhmm(new Date(quarters[end].start.getTime() + 15 * 60000)) : null;
+  const strength = intensity(Math.max(...spell.map(q => q.rain + q.snow)));
+  let text = first === 0 ? (until ? `Now · stops ~${until}` : "Now · for the next 4 hours")
+    : `From ~${hhmm(quarters[first].start)}${until ? ` to ${until}` : ""} · ${strength}`;
+  if (kind === "ice") text = "icy paths · " + text.charAt(0).toLowerCase() + text.slice(1);
+  return { kind, label: { rain: "RAIN", snow: "SNOW", ice: "ICY" }[kind], text };
+}
+function renderWeatherPanel(n) {
+  const el = document.getElementById("h-wx");
+  const slots = weatherSlots();
+  const cur = slots.find(s => s.start <= n && n < s.start.getTime() + 15 * 60000);
+  if (!cur) {
+    el.className = "h-wx"; el.dataset.state = "none";
+    setHTML(el, `<div class="h-off">Weather unavailable<br>retrying</div>`);
+    return;
+  }
+  const stale = Date.now() - weatherAt > 30 * 60000;
+  const startHour = new Date(n); startHour.setUTCMinutes(0, 0, 0);
+  const hours = [1, 2, 3, 4].map(k => {
+    const t = new Date(startHour.getTime() + k * 3600000);
+    const qs = slots.filter(s => s.start >= t && s.start < t.getTime() + 3600000);
+    const top = qs.find(q => q.start.getTime() === t.getTime()) || qs[0];
+    const wet = KIND_ORDER.reduce((w, x) => qs.some(q => wetKind(q) === x) ? x : w, null);
+    return { t, qs, temp: top ? top.temp : null, kind: wet || (top ? skyKind(top) : "overcast") };
+  });
+  const ahead = slots.filter(s => s.start >= cur.start && s.start < hours[3].t.getTime() + 3600000);
+  const next3h = ahead.filter(s => s.start < n.getTime() + 3 * 3600000);
+  const kinds = new Set(next3h.map(wetKind).filter(Boolean));
+  const feels = cur.feels != null ? cur.feels : cur.temp;
+  const alert = weatherAlert(ahead);
+  const dry = hours.every(h => h.qs.every(q => !(q.rain + q.snow > 0)));
+  const deg = v => v == null ? "–" : `${Math.round(v)}°`.replace("-", "−");
+  const asOf = hhmm(new Date(n.getTime() - (Date.now() - weatherAt)));
+  el.className = "h-wx" + (stale ? " stale" : "");
+  el.dataset.state = stale ? "stale" : "ok";
+  el.dataset.alert = alert ? alert.kind : "dry";
+  setHTML(el, `
+    <div class="h-dim"><div class="h-now">${icon(skyKind(cur), 64)}
+      <div class="h-temp num">${deg(cur.temp)}</div>
+      <div style="min-width:0"><div class="h-desc">${weatherWord(cur.code) ? cap(weatherWord(cur.code)) : ""}</div>${stale ? "" : `<div class="h-feels">Feels ${deg(feels)}</div>`}</div></div></div>
+    ${stale ? `<div class="h-asof">As of ${asOf} · not updating</div>` : ""}
+    <div class="h-verdict" id="h-verdict">${verdict(feels, kinds)}</div>
+    <div class="h-hours h-dim">${hours.map(h => `<div class="h-hour">
+      <div class="t num">${hhmm(h.t)}</div><div class="i">${icon(h.kind, 36)}</div><div class="c num">${deg(h.temp)}</div>
+      ${dry ? "" : `<div class="h-bars">${[0, 1, 2, 3].map(k => { const q = h.qs[k]; const v = q ? q.rain + q.snow : 0;
+        return `<div style="height:${v > 0 ? Math.max(6, Math.min(44, Math.round(v / 0.5 * 44))) : 0}px;background:${BARCOL[q && wetKind(q) || "rain"]}"></div>`; }).join("")}</div>`}
+    </div>`).join("")}</div>
+    <div class="h-alerts">${alert ? `<div class="h-alert"><span class="h-chip ${alert.kind}">${alert.label}</span>${alert.text}</div>`
+      : `<div class="h-alert plain">Dry for the next 4 hours</div>`}</div>`);
+}
+function renderTrainBar(n) {
+  const el = document.getElementById("h-trains");
+  const chevron = `<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>`;
+  const label = `<svg aria-hidden="true" style="flex:0 0 auto" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="14" rx="2"></rect><path d="M5 11h14M8 17l-2 4M16 17l2 4"></path></svg><span class="h-tlabel"><b>Trains</b><span>to Odenplan</span></span>`;
+  let main = "", pace = "", sub = "", warn = false;
+  if (departures === null) main = `<span class="h-thero small">${fetchError ? "No live train times" : "Getting train times…"}</span>`;
+  else {
+    const slots = weatherSlots();
+    const deps = withPlan(departures);
+    for (const d of deps) d.wx = walkWeather(slots, d.expected);
+    const extra = d => d.wx ? d.wx.extra : 0;
+    const paceOf = d => paceFor(mins(n, d.expected), extra(d));
+    const live = deps.filter(d => mins(n, d.expected) > -0.5);
+    const catchable = live.filter(d => !d.cancelled && paceOf(d).level > 0);
+    const pool = catchable.filter(d => mins(catchable[0].expected, d.expected) <= 15);
+    const effort = d => Math.max(2, paceOf(d).level);
+    const next = pool.reduce((b, d) => !b || effort(d) < effort(b) ? d : b, null);
+    if (!next) main = `<span class="h-thero small">No trains in the next 2 hours</span>`;
+    else {
+      const leaveIn = mins(n, next.expected) - (CONFIG.walkMinutes + extra(next) + CONFIG.platformBufferMinutes);
+      const p = leaveIn >= 1 ? PACES.find(x => x.level === 2) : paceOf(next);
+      const then = catchable.find(d => d.expected > next.expected);
+      main = `<span class="h-tline"><span class="h-thero num">${leaveIn >= 1 ? `Leave in ${minutesLabel(leaveIn)} min` : "Go now"}</span>
+        <span class="h-tfor">${isBus(next) ? "·" : "for"}</span>${isBus(next) ? `<span class="h-bus">BUS</span>` : ""}
+        <span class="h-tdep num">${hhmm(next.expected)}</span>${then ? `<span class="h-tthen num">then ${hhmm(then.expected)}</span>` : ""}</span>`;
+      pace = `<span class="h-tpace" style="color:${p.color}">${p.name === "Usain Bolt" ? "Sprint" : p.short || p.name}</span>`;
+      const notes = live.filter(d => d.cancelled && d.expected <= next.expected).map(d => `${hhmm(d.expected)} cancelled`);
+      if (next.planned) notes.push("Not live · timetable time");
+      if (notes.length) { sub = `<span class="h-tsub">${notes.join(" · ")}</span>`; warn = true; }
+      el.dataset.train = hhmm(next.expected);
+    }
+    if (!next) el.dataset.train = "";
+  }
+  el.className = "h-trains" + (warn ? " warn" : "");
+  setHTML(el, `${label}<span class="h-tmain">${main}${sub}</span><span class="h-tend">${pace}${chevron}</span>`);
+}
+function renderHome(n) {
+  document.getElementById("h-clock").textContent = hhmm(n);
+  const sun = sunLine(n);
+  document.getElementById("h-date").innerHTML = `<b>${DAYS[weekday()]} ${n.getUTCDate()} ${MONTHS[n.getUTCMonth()]}</b>${sun ? " · " + sun : ""}`;
+  renderWeatherPanel(n);
+  renderTrainBar(n);
+  const age = lastOk ? Date.now() - lastOk : null;
+  const live = age !== null && age <= CONFIG.staleSeconds * 1000 && !fetchError;
+  const wxAge = weatherAt ? Math.round((Date.now() - weatherAt) / 60000) : null;
+  const foot = document.getElementById("h-foot");
+  foot.className = "h-foot" + (live || departures === null && !fetchError ? "" : " bad");
+  foot.innerHTML = `<span class="ld"></span>${live ? "Live from SL" : departures === null && !fetchError ? "Connecting to SL…" : `SL not answering · retrying${lastOk ? " · times from " + hhmm(new Date(n.getTime() - age)) : ""}`}`
+    + (wxAge != null ? ` · weather ${wxAge < 1 ? "just now" : wxAge + " min ago"}` : "");
 }
 
 /* ---------- Logic ---------- */
@@ -492,7 +747,12 @@ function render() {
   if (awake && wasAwake === false) { wasAwake = true; load(); loadWeather(); loadPlan(); }
   wasAwake = awake;
   const n = now();
+  const view = currentView();
+  document.body.classList.toggle("view-home", view === "home");
+  document.body.dataset.view = view;
+  document.getElementById("day").textContent = DAYS[weekday()];
   secFrac = n.getUTCSeconds() / 60;
+  if (view === "home") renderHome(n);
   document.getElementById("clock").textContent = hhmm(n);
   const main = document.getElementById("main");
   const hero = document.getElementById("hero");
@@ -675,7 +935,9 @@ function render() {
 window.__test = {
   setAt(iso) { frozenAt = parseLocal(iso); render(); },
   feed(data) { accept(data); render(); },
-  feedWeather(data) { weather = data ? data.minutely_15 : null; weatherAt = Date.now(); render(); },
+  feedWeather(data) { weather = data ? data.minutely_15 : null; weatherDaily = data ? data.daily || null : null; weatherAt = Date.now(); render(); },
+  weatherAge(minutes) { weatherAt = Date.now() - minutes * 60000; render(); },
+  passMinutes(minutes) { if (chosen) chosen.at -= minutes * 60000; wakeUntil -= minutes * 60000; render(); },
 };
 
 wasAwake = isAwake();
