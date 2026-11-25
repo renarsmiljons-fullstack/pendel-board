@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import copy
+
+import pytest
 from datetime import datetime
 
 from conftest import BASE_MORNING, WEATHER, load_fixture, shifted
@@ -146,3 +148,16 @@ def test_cancelled_train_is_named_in_the_bar(open_board):
             d["state"] = "CANCELLED"
     h = open_board(data, t("06:35"), view="home").home()
     assert "06:48 cancelled" in h["trains"] and h["trainWarn"] and h["train"] != "06:48"
+
+
+@pytest.mark.parametrize("font", ["Inter", "DejaVu Sans"])
+def test_clock_fits_its_column_in_any_font(open_board, font):
+    # The Pi has no Inter and falls back to DejaVu Sans, whose digits are wider
+    board = open_board(BASE, t("20:08"), view="home", orientation="landscape")
+    board.page.set_viewport_size({"width": 1067, "height": 600})
+    board.page.evaluate(f"() => {{ document.body.style.fontFamily = '{font}'; render(); }}")
+    board.page.wait_for_timeout(200)
+    fits = board.page.evaluate("""() => { const c = document.getElementById('h-clock');
+      return c.getBoundingClientRect().right <= c.parentElement.getBoundingClientRect().right
+          && c.getBoundingClientRect().left >= 0; }""")
+    assert fits
