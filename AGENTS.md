@@ -11,13 +11,13 @@ they copy what they find. So CI enforces the habits that keep it healthy. These 
 - Before you write new code, look for code to reuse. Colours come from the tokens in `:root`.
   "Which train is yours" comes from `pickTrains()`.
 - When you remove a feature, remove its styles, helpers and tests too.
-- `tests/test_hygiene.py` fails on stray colours, dead code, TODO notes, copied blocks and growing
+- `tests/test_garden.py` fails on stray colours, dead code, TODO notes, copied blocks and growing
   budgets. Its message says the fix. Fix the code. Don't raise the budget.
 
 ## The garden gate
 
 After 10 code commits, CI blocks everything except a `tidy:` commit that lowers a budget in
-`tests/hygiene_budget.json` or adds a check. `python tools/garden.py report` shows where to look.
+`tests/garden_budget.json` or adds a check. `python tools/garden.py report` shows where to look.
 
 ## When you are corrected
 
