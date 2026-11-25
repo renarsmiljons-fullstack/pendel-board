@@ -2,7 +2,7 @@ name: CI
 
 # Runs every test. On main, a green run moves the `stable` branch,
 # which is the only branch the Raspberry Pi pulls.
-# The health job runs the commit rules and the garden gate; see AGENTS.md.
+# The garden job runs the commit rules and the garden gate; see AGENTS.md.
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  health:
+  garden:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
         run: python -m pytest -q
 
   promote:
-    needs: [health, test]
+    needs: [garden, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
